@@ -29,6 +29,7 @@ class Ovs(object):
     Implements subclasses like _Cli, _Vsctl, _Dpctl and _Ofctl which implements
     list of APIs to execute ovs utility commands
     """
+
     def __init__(self, connection):
         self.vsctl = self._Vsctl(connection)
         self.dpctl = self._Dpctl(connection)
@@ -99,11 +100,10 @@ class Ovs(object):
             """
             cmd = self.form_cmd(f"add-port {bridge} {port}")
             return self.connection.execute_command(cmd)
-        
-        def add_port_vxlan_type(self, bridge, port, local_ip, remote_ip,
-                                dst_port):
+
+        def add_port_vxlan_type(self, bridge, port, local_ip, remote_ip, dst_port):
             """
-            
+
             :param bridge: Name of the bridge
             :type bridge: string e.g. br-int
             :param port:  name of vxlan port to add
@@ -117,12 +117,14 @@ class Ovs(object):
             :return: it returns cmd output, error code, and error
             :rtype: tuple e.g. out, e_code, err
             """
-            cmd = self.form_cmd(f"add-port {bridge} {port} -- set interface "
-                                f"{port} type=vxlan options:local_ip={local_ip}"
-                                f" options:remote_ip={remote_ip}"
-                                f" options:dst_port={dst_port}")
+            cmd = self.form_cmd(
+                f"add-port {bridge} {port} -- set interface "
+                f"{port} type=vxlan options:local_ip={local_ip}"
+                f" options:remote_ip={remote_ip}"
+                f" options:dst_port={dst_port}"
+            )
             return self.connection.execute_command(cmd)
-        
+
         def add_p4_device(self, id):
             """Add bridge with given name
 
@@ -133,7 +135,7 @@ class Ovs(object):
             """
             cmd = self.form_cmd(f"add-p4-device {id}")
             return self.connection.execute_command(cmd)
-        
+
         def add_br_p4(self, bridge, id):
             """Add bridge with given name
 
@@ -221,7 +223,7 @@ class Ovs(object):
         cmd_prefix = "ovs-dpctl"
 
         def show(self, bridge=""):
-            """ Helps to show linux bridge overall summary
+            """Helps to show linux bridge overall summary
 
             :param bridge: linux bridge name
             :type bridge: string e.g. br1
@@ -230,9 +232,9 @@ class Ovs(object):
             """
             if not bridge:
                 raise RuntimeError(
-                    "Dpctl show require at least one argument - bridge name")
-            super(Ovs._Dpctl, self).show(
-                bridge)  # pylint: disable=protected-access
+                    "Dpctl show require at least one argument - bridge name"
+                )
+            super(Ovs._Dpctl, self).show(bridge)  # pylint: disable=protected-access
 
         def dump_flows(self, bridge=""):
             """Get all flow entries in datapath dp's flow table.
@@ -274,7 +276,7 @@ class Ovs(object):
             cmd = self.form_cmd(f"dump-flows {bridge}")
             return self.connection.execute_command(cmd)
 
-        def dump_port(self,bridge):
+        def dump_port(self, bridge):
             """
             Dump the port on the bridge
 

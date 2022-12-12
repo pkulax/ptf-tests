@@ -18,7 +18,7 @@ import io
 import re
 import time
 from io import StringIO
-import common.lib.ovs_p4ctl as ovs_p4ctl
+# import common.lib.ovs_p4ctl as ovs_p4ctl
 from contextlib import redirect_stdout
 from common.lib.local_connection import Local
 

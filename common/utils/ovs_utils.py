@@ -23,10 +23,11 @@ from common.lib.local_connection import Local
 from common.lib.ssh import Ssh
 from common.lib.ovs import Ovs
 import common.lib.port_config as port_config
+import common.utils.log as log
 
 
 def get_connection_object(remote=False, hostname="", username="", passwd=""):
-    """ Get connection object needed either for localhost or remote host
+    """Get connection object needed either for localhost or remote host
     commands execution
 
     :param remote: set value to True enables remote host cmd execution
@@ -49,21 +50,22 @@ def get_connection_object(remote=False, hostname="", username="", passwd=""):
 
 
 def get_ovsctl_version(remote=False, hostname="", username="", passwd=""):
-    """ Get current Ovs version
-    """
+    """Get current Ovs version"""
     # Establish connection with local/remote host
-    connection = get_connection_object(remote, hostname=hostname,username=username,passwd=passwd)
+    connection = get_connection_object(
+        remote, hostname=hostname, username=username, passwd=passwd
+    )
     ovs = Ovs(connection)
     # Execute needed ovs command
     version = ovs.vsctl.get_ver()
     if version:
-        print(version)
+        log.info(version)
     # Close connection
     connection.tear_down()
 
-def add_bridge_to_ovs(bridge_name, remote=False, hostname="", username="",
-                      passwd=""):
-    """ Add bridge to ovs
+
+def add_bridge_to_ovs(bridge_name, remote=False, hostname="", username="", passwd=""):
+    """Add bridge to ovs
 
     :param bridge_name: name of the bridge to add
     :type bridge_name: string e.g. br-int
@@ -79,7 +81,9 @@ def add_bridge_to_ovs(bridge_name, remote=False, hostname="", username="",
     :rtype: boolean e.g. True on success or False on failure
     """
     # Establish connection with local/remote host
-    connection = get_connection_object(remote, hostname=hostname,username=username,passwd=passwd)
+    connection = get_connection_object(
+        remote, hostname=hostname, username=username, passwd=passwd
+    )
     ovs = Ovs(connection)
     # Execute needed ovs command
     out, rcode, err = ovs.vsctl.add_br(bridge_name)
@@ -87,15 +91,15 @@ def add_bridge_to_ovs(bridge_name, remote=False, hostname="", username="",
     connection.tear_down()
     # work on output data
     if rcode:
-        print(f'failed to add bridge to ovs, error is:{err}')
+        log.failed(f"failed to add bridge to ovs, error is:{err}")
         return False
     else:
-        print('Successfully added bridge to ovs')
+        log.passed("Successfully added bridge to ovs")
         return True
 
-def del_bridge_from_ovs(bridge_name, remote=False, hostname="", username="",
-                      passwd=""):
-    """ Delete bridge from ovs
+
+def del_bridge_from_ovs(bridge_name, remote=False, hostname="", username="", passwd=""):
+    """Delete bridge from ovs
 
     :param bridge_name: name of the bridge to add
     :type bridge_name: string e.g. br-int
@@ -111,7 +115,9 @@ def del_bridge_from_ovs(bridge_name, remote=False, hostname="", username="",
     :rtype: boolean e.g. True on success or False on failure
     """
     # Establish connection with local/remote host
-    connection = get_connection_object(remote, hostname=hostname, username=username, passwd=passwd)
+    connection = get_connection_object(
+        remote, hostname=hostname, username=username, passwd=passwd
+    )
     ovs = Ovs(connection)
     # Execute needed ovs command
     out, rcode, err = ovs.vsctl.del_br(bridge_name)
@@ -119,15 +125,15 @@ def del_bridge_from_ovs(bridge_name, remote=False, hostname="", username="",
     connection.tear_down()
     # work on output data
     if rcode:
-        print(f'failed to delete bridge to ovs, error is:{err}')
+        log.failed(f"failed to delete bridge to ovs, error is:{err}")
         return False
     else:
-        print('Successfully delete bridge to ovs')
+        log.passed("Successfully delete bridge to ovs")
         return True
 
-def ovs_bridge_up(bridge_name, remote=False, hostname="", username="",
-                  password=""):
-    """ Make ovs bridge up and running
+
+def ovs_bridge_up(bridge_name, remote=False, hostname="", username="", password=""):
+    """Make ovs bridge up and running
 
     :param bridge_name: name of the bridge to make up
     :type bridge_name: string e.g. br-int
@@ -145,11 +151,20 @@ def ovs_bridge_up(bridge_name, remote=False, hostname="", username="",
     pc = port_config.PortConfig(remote, hostname, username, password)
     pc.Ip.iplink_enable_disable_link(bridge_name)
     pc.Ip.tear_down()
-    print(f'bridge {bridge_name} is UP')
+    log.info(f"bridge {bridge_name} is UP")
 
 
-def add_vxlan_port_to_ovs(bridge, port, local_ip, remote_ip, dst_port,
-                          remote=False, hostname="", username="", password=""):
+def add_vxlan_port_to_ovs(
+    bridge,
+    port,
+    local_ip,
+    remote_ip,
+    dst_port,
+    remote=False,
+    hostname="",
+    username="",
+    password="",
+):
     """Add vxlan port to ovs bridge
 
     :param bridge: Name of the bridge
@@ -175,23 +190,28 @@ def add_vxlan_port_to_ovs(bridge, port, local_ip, remote_ip, dst_port,
     """
 
     # Establish connection with local/remote host
-    connection = get_connection_object(remote, hostname=hostname,username=username,passwd=password)
+    connection = get_connection_object(
+        remote, hostname=hostname, username=username, passwd=password
+    )
     ovs = Ovs(connection)
     # Execute needed ovs command
-    out, rcode, err = ovs.vsctl.add_port_vxlan_type(bridge, port, local_ip,
-                                                    remote_ip, dst_port)
+    out, rcode, err = ovs.vsctl.add_port_vxlan_type(
+        bridge, port, local_ip, remote_ip, dst_port
+    )
     # Close connection
     connection.tear_down()
     # work on output data
     if rcode:
-        print(f'failed to add vxlan port to ovs, error is:{err}')
+        log.failed(f"failed to add vxlan port to ovs, error is:{err}")
         return False
     else:
-        print('Successfully added vxlan port to ovs')
+        log.passed("Successfully added vxlan port to ovs")
         return True
-    
-def add_vlan_to_bridge(bridge, vlan,
-                          remote=False, hostname="", username="", password=""):
+
+
+def add_vlan_to_bridge(
+    bridge, vlan, remote=False, hostname="", username="", password=""
+):
     """Add vlan port to ovs bridge
 
     :param bridge: Name of the bridge
@@ -208,9 +228,11 @@ def add_vlan_to_bridge(bridge, vlan,
     :return: exit status
     :rtype: boolean e.g. True on success or False on failure
     """
-   
+
     # Establish connection with local/remote host
-    connection = get_connection_object(remote, hostname=hostname, username=username, passwd=password)
+    connection = get_connection_object(
+        remote, hostname=hostname, username=username, passwd=password
+    )
     ovs = Ovs(connection)
     # Execute needed ovs command
     out, rcode, err = ovs.vsctl.add_vlan_to_bridge(bridge, vlan)
@@ -218,16 +240,17 @@ def add_vlan_to_bridge(bridge, vlan,
     connection.tear_down()
     # work on output data
     if rcode:
-        print(f'failed to add vlan port to ovs, error is:{err}')
+        log.failed(f"failed to add vlan port to ovs, error is:{err}")
         return False
     else:
-        print('Successfully added vlan port to ovs')
+        log.passed("Successfully added vlan port to ovs")
         return True
 
 
-def add_port_to_ovs(bridge, port_to_add, remote=False, hostname="",
-                    username="", password=""):
-    """ Add given port to ovs bridge
+def add_port_to_ovs(
+    bridge, port_to_add, remote=False, hostname="", username="", password=""
+):
+    """Add given port to ovs bridge
 
     :param bridge: name of bridge
     :type bridge: string e.g. br-int
@@ -253,16 +276,17 @@ def add_port_to_ovs(bridge, port_to_add, remote=False, hostname="",
     connection.tear_down()
     # work on output data
     if rcode:
-        print(f'failed to add port to ovs, error is:{err}')
+        log.failed(f"failed to add port to ovs, error is:{err}")
         return False
     else:
-        print(f'Successfully added {port_to_add} port to ovs')
+        log.passed(f"Successfully added {port_to_add} port to ovs")
         return True
 
 
-def del_port_from_ovs(bridge, port_to_delete, remote=False, hostname="",
-                      username="", password=""):
-    """ Delete given port from ovs including vxlan type too
+def del_port_from_ovs(
+    bridge, port_to_delete, remote=False, hostname="", username="", password=""
+):
+    """Delete given port from ovs including vxlan type too
 
     :param bridge: Name of the bridge
     :type bridge: string e.g. br-int
@@ -281,7 +305,9 @@ def del_port_from_ovs(bridge, port_to_delete, remote=False, hostname="",
     """
 
     # Establish connection with local/remote host
-    connection = get_connection_object(remote, hostname=hostname,username=username,passwd=password)
+    connection = get_connection_object(
+        remote, hostname=hostname, username=username, passwd=password
+    )
     ovs = Ovs(connection)
     # Execute needed ovs command
     out, rcode, err = ovs.vsctl.del_port(bridge, port_to_delete)
@@ -289,15 +315,15 @@ def del_port_from_ovs(bridge, port_to_delete, remote=False, hostname="",
     connection.tear_down()
     # work on output data
     if rcode:
-        print(f'failed to delete port from ovs, error is:{err}')
+        log.failed(f"failed to delete port from ovs, error is:{err}")
         return False
     else:
-        print(f'Successfully delete {port_to_delete} port from ovs')
+        log.passed(f"Successfully delete {port_to_delete} port from ovs")
         return True
 
 
 def del_ovs_bridge(bridge, remote=False, hostname="", username="", password=""):
-    """ delete ovs bridge
+    """delete ovs bridge
 
     :param bridge: name of bridge to delete
     :type bridge: string e.g. br-int
@@ -321,8 +347,8 @@ def del_ovs_bridge(bridge, remote=False, hostname="", username="", password=""):
     connection.tear_down()
     # work on output data
     if rcode:
-        print(f'failed to delete ovs bridge, error is:{err}')
+        log.failed(f"failed to delete ovs bridge, error is:{err}")
         return False
     else:
-        print(f'Successfully deleted ovs bridge')
+        log.passed(f"Successfully deleted ovs bridge")
         return True

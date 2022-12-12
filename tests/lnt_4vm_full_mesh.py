@@ -31,10 +31,10 @@ from ptf.base_tests import BaseTest
 from ptf.testutils import *
 
 # framework related imports
-import common.utils.ovsp4ctl_utils as ovs_p4ctl
+import common.utils.p4rtctl_utils as p4rt_ctl
 import common.utils.test_utils as test_utils
 import common.utils.ovs_utils as ovs_utils
-import common.utils.gnmi_cli_utils as gnmi_cli_utils
+import common.utils.gnmi_ctl_utils as gnmi_ctl_utils
 from common.utils.config_file_utils import get_config_dict, get_gnmi_params_simple, get_interface_ipv4_dict,get_gnmi_params_hotplug,get_interface_ipv4_dict_hotplug
 from common.lib.telnet_connection import connectionManager
 
@@ -54,9 +54,9 @@ class LNT_4VM_FUll_MESH(BaseTest):
                     vm_location_list=test_params['vm_location_list'],
                           vm_cred=self.vm_cred, client_cred=test_params['client_cred'],
                                               remote_port = test_params['remote_port']) 
-        self.gnmicli_params = get_gnmi_params_simple(self.config_data)
-        self.tap_port_list =  gnmi_cli_utils.get_tap_port_list(self.config_data)
-        self.link_port_list = gnmi_cli_utils.get_link_port_list(self.config_data)
+        self.gnmictl_params = get_gnmi_params_simple(self.config_data)
+        self.tap_port_list =  gnmi_ctl_utils.get_tap_port_list(self.config_data)
+        self.link_port_list = gnmi_ctl_utils.get_link_port_list(self.config_data)
         self.conn_obj_list = []
         
     def runTest(self):
@@ -67,9 +67,9 @@ class LNT_4VM_FUll_MESH(BaseTest):
         if not test_utils.gen_dep_files_p4c_dpdk_pna_ovs_pipeline_builder(self.config_data):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to generate P4C artifacts or pb.bin")
-        if not gnmi_cli_utils.gnmi_cli_set_and_verify(self.gnmicli_params):
+        if not gnmi_ctl_utils.gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
-            self.fail("Failed to configure gnmi cli ports")
+            self.fail("Failed to configure gnmi ctl ports")
     
         # create VMs
         result, vm_name = test_utils.vm_create(self.config_data['vm_location_list'])
@@ -94,16 +94,16 @@ class LNT_4VM_FUll_MESH(BaseTest):
             test_utils.configure_vm(self.conn_obj_list[i], vm_cmd_list[i])
 
         #bring up TAP0
-        if not gnmi_cli_utils.ip_set_dev_up(self.tap_port_list[0]):
+        if not gnmi_ctl_utils.ip_set_dev_up(self.tap_port_list[0]):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to bring up {self.tap_port_list[0]}")
         
         #Bring up control TAP1
-        if not gnmi_cli_utils.ip_set_dev_up(self.link_port_list[0]['control-port']):
+        if not gnmi_ctl_utils.ip_set_dev_up(self.link_port_list[0]['control-port']):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to bring up {self.link_port_list[0]['control-port']")
    
-        if not gnmi_cli_utils.ip_add_addr(self.link_port_list[0]['control-port'],
+        if not gnmi_ctl_utils.ip_add_addr(self.link_port_list[0]['control-port'],
                                                        self.config_data['vxlan']['tep_ip'][0] ):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure TEP IP for {self.link_port_list[0]['control-port']}")
@@ -114,7 +114,7 @@ class LNT_4VM_FUll_MESH(BaseTest):
             self.fail("Failed to generate P4C artifacts or pb.bin")
        
         # set pipe line
-        if not ovs_p4ctl.ovs_p4ctl_set_pipe(self.config_data['switch'], 
+        if not p4rt_ctl.p4rt_ctl_set_pipe(self.config_data['switch'], 
                                           self.config_data['pb_bin'], self.config_data['p4_info']):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to set pipe")
@@ -124,7 +124,7 @@ class LNT_4VM_FUll_MESH(BaseTest):
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed to add bridge {self.config_data['bridge']} to ovs")
         #bring up bridge
-        if not gnmi_cli_utils.ip_set_dev_up(self.config_data['bridge']):
+        if not gnmi_ctl_utils.ip_set_dev_up(self.config_data['bridge']):
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed to bring up {self.config_data['bridge']}")
     
@@ -142,7 +142,7 @@ class LNT_4VM_FUll_MESH(BaseTest):
             id = self.config_data['port'][i]['vlan']
             vlanname = "vlan"+id
             #add vlan to TAP0, e.g. ip link add link TAP0 name vlan1 type vlan id 1
-            if not gnmi_cli_utils.iplink_add_vlan_port(id, vlanname, self.tap_port_list[0]):
+            if not gnmi_ctl_utils.iplink_add_vlan_port(id, vlanname, self.tap_port_list[0]):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to add vlan {vlanname} to {self.tap_port_list[0]}")
 
@@ -152,7 +152,7 @@ class LNT_4VM_FUll_MESH(BaseTest):
                 self.fail(f"Failed to add vlan {vlanname} to {self.config_data['bridge']}")
 
             #bring up vlan 
-            if not gnmi_cli_utils.ip_set_dev_up(vlanname):
+            if not gnmi_ctl_utils.ip_set_dev_up(vlanname):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to bring up {vlanname}")
         
@@ -161,7 +161,7 @@ class LNT_4VM_FUll_MESH(BaseTest):
             print(f"Scenario : {table['description']}")
             print(f"Adding {table['description']} rules")
             for match_action in table['match_action']:
-                if not ovs_p4ctl.ovs_p4ctl_add_entry(table['switch'],table['name'], match_action):
+                if not p4rt_ctl.p4rt_ctl_add_entry(table['switch'],table['name'], match_action):
                     self.result.addFailure(self, sys.exc_info())
                     self.fail(f"Failed to add table entry {match_action}")
 
@@ -179,7 +179,7 @@ class LNT_4VM_FUll_MESH(BaseTest):
                      ovs {self.config_data['bridge']} on {self.config_data['client_hostname']}" )
  
         # bring up the bridge
-        if not gnmi_cli_utils.ip_set_dev_up(self.config_data['bridge'],remote=True,
+        if not gnmi_ctl_utils.ip_set_dev_up(self.config_data['bridge'],remote=True,
                       hostname=self.config_data['client_hostname'],
                              username=self.config_data['client_username'],
                                     password=self.config_data['client_password']):
@@ -188,7 +188,7 @@ class LNT_4VM_FUll_MESH(BaseTest):
             self.fail(f"Failed to bring up {self.config_data['bridge']}")
         
         # assign IP to the bridge
-        if not gnmi_cli_utils.ip_add_addr(self.config_data['bridge'],self.config_data['vxlan']['tep_ip'][1], 
+        if not gnmi_ctl_utils.ip_add_addr(self.config_data['bridge'],self.config_data['vxlan']['tep_ip'][1], 
                     remote=True, hostname=self.config_data['client_hostname'],
                         username=self.config_data['client_username'],
                                 passwd=self.config_data['client_password']):
@@ -230,7 +230,7 @@ class LNT_4VM_FUll_MESH(BaseTest):
                          bridge {self.config_data['bridge']} on on {self.config_data['client_hostname']}")
 
         print (f"bring up {self.config_data['remote_port'][0]} and add it to bridge {self.config_data['bridge']}")
-        if not gnmi_cli_utils.ip_set_dev_up(self.config_data['remote_port'][0],remote=True, 
+        if not gnmi_ctl_utils.ip_set_dev_up(self.config_data['remote_port'][0],remote=True, 
                         hostname=self.config_data['client_hostname'],
                             username=self.config_data['client_username'],
                                     password=self.config_data['client_password']):
@@ -265,7 +265,7 @@ class LNT_4VM_FUll_MESH(BaseTest):
                 if not test_utils.vm_to_vm_ping_test(self.conn_obj_list[i], ip):
                     self.result.addFailure(self, sys.exc_info())
                     self.fail(f"FAIL: Ping test failed for VM{i}")
-
+        
         print ("close VM telnet session")
         for conn in self.conn_obj_list:
             conn.close()
@@ -276,13 +276,13 @@ class LNT_4VM_FUll_MESH(BaseTest):
         for table in self.config_data['table']:
             print(f"Deleting {table['description']} rules")
             for del_action in table['del_action']:
-                ovs_p4ctl.ovs_p4ctl_del_entry(table['switch'], table['name'], del_action)
+                p4rt_ctl.p4rt_ctl_del_entry(table['switch'], table['name'], del_action)
     
         print ("Delete vlan on local host")
         for i in range(len(self.conn_obj_list)):
             id = self.config_data['port'][i]['vlan']
             vlanname = "vlan"+id
-            if not gnmi_cli_utils.iplink_del_port(vlanname):
+            if not gnmi_ctl_utils.iplink_del_port(vlanname):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to delete {vlanname}")
 

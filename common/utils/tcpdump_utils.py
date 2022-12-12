@@ -15,42 +15,44 @@
 # limitations under the License.
 from common.lib.tcpdump import TcpDumpCap
 from common.lib.local_connection import Local
-import os,shutil
+import common.utils.log as log
+import os, shutil
 
 
-def tcpdump_start_pcap(interface, src_host ="", pkt_count=1 ):
+def tcpdump_start_pcap(interface, src_host="", pkt_count=1):
     """
     TCPDUMP function to start packet capture in background and dump packet capture to /tmp dir
     e.g  << tcpdump -i TAP1 host 192.168.1.10 -nn -c 1 >> /tmp/TAP1/TAP1.pcap &
 
-    :params interface: to start packet capture 
+    :params interface: to start packet capture
             src_host: to filter traffic with source ip
-            pkt_count: Number of packets to capure with default value as 1 
+            pkt_count: Number of packets to capure with default value as 1
     """
     tcpd = TcpDumpCap()
 
     cmdopt = []
     if interface:
-        cmdopt.extend(['-i', interface])
+        cmdopt.extend(["-i", interface])
     if src_host:
-        cmdopt.extend(['src', src_host])
+        cmdopt.extend(["src", src_host])
     if pkt_count:
-        cmdopt.extend(['-c', pkt_count])
-    cmdopt.extend(['-nn'])
-    pcapdir = "/tmp/" + interface  
+        cmdopt.extend(["-c", pkt_count])
+    cmdopt.extend(["-nn"])
+    pcapdir = "/tmp/" + interface
     if not os.path.exists(pcapdir):
-       try:
-           os.makedirs(pcapdir)
-       except OSError as e:
-           if e.errno != errno.EEXIST:
+        try:
+            os.makedirs(pcapdir)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
                 raise
     pcapfile = pcapdir + "/" + interface + ".pcap"
-    cmdopt.extend(['>>', pcapfile])
-    if os.path.exists(pcapfile): os.remove(pcapfile)
+    cmdopt.extend([">>", pcapfile])
+    if os.path.exists(pcapfile):
+        os.remove(pcapfile)
     tcpd.TCPDUMP.tcpdump_start_capture(cmdopt)
 
 
-def tcpdump_get_pcap(interface): 
+def tcpdump_get_pcap(interface):
     """
     Function to return captured packets in clear text
     param: interface name for file/interface identity
@@ -62,8 +64,9 @@ def tcpdump_get_pcap(interface):
     if os.path.exists(pcapfile) and os.stat(pcapfile).st_size != 0:
         output = open(pcapfile).read()
         return output
-    else: 
-        print("Pcap file does not exist or empty")
+    else:
+        log.failed("Pcap file does not exist or empty")
+
 
 def tcdump_match_str(superstring, substring):
     """
@@ -79,23 +82,25 @@ def tcdump_match_str(superstring, substring):
             result = False
     return result
 
+
 def tcpdump_remove_pcap_file(interface):
     """
     A function to remove pcap file directory e.g  remove /tmp/TAP1/
 
-    :params interface: to start packet capture 
+    :params interface: to start packet capture
     """
-    
+
     pcapdir = "/tmp/" + interface
     if os.path.exists(pcapdir):
         try:
             shutil.rmtree(pcapdir)
             return pcapdir
         except OSError as e:
-            print(f"FAIL: Failed to remove {pcapdir}due to {e.strerror}")
+            log.failed(f"Failed to remove {pcapdir}due to {e.strerror}")
             return False
 
+
 def tcpdump_tear_down():
-  
+
     tcpd = TcpDumpCap()
     tcpd.TCPDUMP.tcpdump_tear_down()

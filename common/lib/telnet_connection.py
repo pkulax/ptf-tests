@@ -14,8 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import telnetlib
+import common.utils.log as log
 
-class connectionManager():
+
+class connectionManager:
     """
     Class to manage device via telnet.
     This class is used to manage VMs.
@@ -35,56 +37,55 @@ class connectionManager():
         self.vm_root_prompt = b"#"
         self.vm_user_prompt = b"$"
 
-        try :
+        try:
             self.tn = telnetlib.Telnet(self.host, self.port, self.timeout)
         except Exception as err:
-            print(f"Failed connection to {self.host} port {self.port} : {err}")
+            log.failed(f"Failed connection to {self.host} port {self.port} : {err}")
             raise err
-
 
         self.tn.write(b"\n")
         self.tn.read_until(self.login_prompt)
-        self.tn.write(self.username.encode('ascii') + b"\n")
+        self.tn.write(self.username.encode("ascii") + b"\n")
 
         if password:
             self.tn.read_until(self.password_prompt, self.timeout)
-            self.tn.write(self.password.encode('ascii') + b"\n")
+            self.tn.write(self.password.encode("ascii") + b"\n")
 
-
-        n,_,_ = self.tn.expect([b'Login incorrect', self.vm_root_prompt, self.vm_user_prompt], self.timeout)
+        n, _, _ = self.tn.expect(
+            [b"Login incorrect", self.vm_root_prompt, self.vm_user_prompt], self.timeout
+        )
         if n == 0:
-            print(f"FAIL: Login Failed to {self.host} port {self.port}")
+            log.failed(f"Login Failed to {self.host} port {self.port}")
             raise AssertionError(f"FAIL: Login Failed to {self.host} port {self.port}")
-
 
     def connect(self, username, password=""):
         """
         login/re-login to devices.
         """
-        try :
+        try:
             self.tn = telnetlib.Telnet(self.host, self.port, self.timeout)
-        
+
         except Exception as err:
-            print(f"Failed connection {err}")
+            log.failed(f"Failed connection {err}")
             raise err
 
         self.tn.write(b"\n")
         self.tn.read_until(self.login_prompt, self.timeout)
-        self.tn.write(username.encode('ascii') + b"\n")
+        self.tn.write(username.encode("ascii") + b"\n")
 
         if password:
             self.tn.read_until(self.password_prompt, self.timeout)
-            self.tn.write(password.encode('ascii') + b"\n")
+            self.tn.write(password.encode("ascii") + b"\n")
 
     def sendCmd(self, cmd):
         """
         Send CLI commands through telnet
         """
         try:
-            self.tn.write(cmd.encode('ascii') + b"\n")
+            self.tn.write(cmd.encode("ascii") + b"\n")
             return True
         except Exception as err:
-            print(f"Send command {cmd} Failed with error: {err}")
+            log.info(f"Send command {cmd} Failed with error: {err}")
             return False
 
     def readResult(self):
@@ -92,9 +93,9 @@ class connectionManager():
         Read the commad output from CLI.
         """
         try:
-            return self.tn.read_until(b"\n*", self.timeout).decode('ascii')
+            return self.tn.read_until(b"\n*", self.timeout).decode("ascii")
         except Exception as err:
-            print(f"Read CLI output failed with error: {err}")
+            log.info(f"Read CLI output failed with error: {err}")
             return False
 
     def close(self):
@@ -103,4 +104,3 @@ class connectionManager():
         """
         self.tn.close()
         return True
-
