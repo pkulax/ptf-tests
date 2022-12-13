@@ -19,8 +19,10 @@ import re
 import time
 from io import StringIO
 import common.lib.p4rt_ctl as p4rt_ctl
+import common.utils.log as log
 from contextlib import redirect_stdout
 from common.lib.local_connection import Local
+
 
 def p4rt_ctl_set_pipe(bridge, device_config, p4info):
     """
@@ -33,14 +35,14 @@ def p4rt_ctl_set_pipe(bridge, device_config, p4info):
     try:
         out = p4rt_ctl.p4ctl_set_pipe(bridge, device_config, p4info)
         if out == None:
-            print(f"PASS: ovs-p4ctl set pipe: {device_config}")
+            log.passed(f"p4rt-ctl set pipe: {device_config}")
             return True
 
     except Exception as error:
-        print(f"FAIL: ovs-p4ctl set pipe Failed with error: {error}")
+        log.failed(f"p4rt-ctl set pipe Failed with error: {error}")
         return False
 
-    
+
 def p4rt_ctl_add_entry(bridge, tbl_name, flow):
     """
     add-entry SWITCH TABLE MATCH_KEY ACTION ACTION_DATA
@@ -51,13 +53,12 @@ def p4rt_ctl_add_entry(bridge, tbl_name, flow):
     try:
         out = p4rt_ctl.p4ctl_add_entry(bridge, tbl_name, flow)
         if out == None:
-            print(f"PASS: ovs-p4ctl add entry: {flow}")
+            log.passed(f"p4rt-ctl add entry: {flow}")
             return True
 
     except Exception as error:
-        print(f"FAIL: ovs-p4ctl add entry Failed with error: {error}")
+        log.failed(f"p4rt-ctl add entry Failed with error: {error}")
         return False
-
 
 
 def p4rt_ctl_del_entry(bridge, tbl_name, match_key):
@@ -67,38 +68,37 @@ def p4rt_ctl_del_entry(bridge, tbl_name, match_key):
       p4rt_ctl_del_entry('br0', 'ingress.ipv4_host', 'hdr.ipv4.dst_addr=.2.2.2')
 
     """
-    
+
     try:
         out = p4rt_ctl.p4ctl_del_entry(bridge, tbl_name, match_key)
         if out == None:
-            print(f"PASS: ovs-p4ctl del entry: {match_key}")
+            log.passed(f"p4rt-ctl del entry: {match_key}")
             return True
 
     except Exception as error:
-        print(f"FAIL; ovs-p4ctl del entry Failed with error: {error}")
+        log.failed(f"p4rt_ctl del entry Failed with error: {error}")
         return False
 
-'''
 
 def p4rt_ctl_add_member(bridge, tbl_name, member_details):
 
     """
     add-member SWITCH TABLE MEMBER_DETAILS
     Example:
-      p4rt_ctl_add_member('br0', 'ingress.as_sl3', 'action=ingress.send(2),member_id=1')      
+      p4rt_ctl_add_member('br0', 'ingress.as_sl3', 'action=ingress.send(2),member_id=1')
 
     """
 
     try:
         out = p4rt_ctl.p4ctl_add_member(bridge, tbl_name, member_details)
         if out == None:
-            print(f"PASS: ovs-p4ctl add member {member_details}")
+            log.passed(f"p4rt-ctl add member {member_details}")
             return True
 
     except Exception as error:
-        print(f"FAIL: ovs-p4ctl add member Failed with error: {error}")
+        log.failed(f"p4rt-ctl add member Failed with error: {error}")
         return False
-        
+
 
 def p4rt_ctl_add_member_and_verify(bridge, tbl_name, member_details):
 
@@ -113,33 +113,35 @@ def p4rt_ctl_add_member_and_verify(bridge, tbl_name, member_details):
     try:
         out = p4rt_ctl.p4ctl_add_member(bridge, tbl_name, member_details)
         if out == None:
-            print(f"PASS: ovs-p4ctl add member {member_details}")
+            log.passed(f"p4rt-ctl add member {member_details}")
         f = io.StringIO()
         with redirect_stdout(f):
-            out = p4rt_ctl.p4ctl_get_member(bridge, tbl_name, f'member_id={mem_id}')
+            out = p4rt_ctl.p4ctl_get_member(bridge, tbl_name, f"member_id={mem_id}")
 
         result = f.getvalue()
         values = result.split("\n")
 
-        dict_var = re.findall('[a-z|_|=|.|0-9]+', values[1].strip())
+        dict_var = re.findall("[a-z|_|=|.|0-9]+", values[1].strip())
         member_returned = {}
         for i in dict_var:
             member_returned.update(dict([i.split("=")]))
         if out == None:
-            print(f"PASS: ovs-p4ctl get details for member {mem_id} :  {member_returned}")
+            log.passed(f"p4rt-ctl get details for member {mem_id} :  {member_returned}")
         keys = member_returned.keys()
-        if (tbl_name == member_returned["action_profiles"]) and (action == member_returned["actions"]) and (' '.join(map(str, action_data)) == member_returned["dst_port"]):
-            print("PASS : Returned member details matching with configured group")
+        if (
+            (tbl_name == member_returned["action_profiles"])
+            and (action == member_returned["actions"])
+            and (" ".join(map(str, action_data)) == member_returned["dst_port"])
+        ):
+            log.passed("Returned member details matching with configured group")
         else:
-            print("FAIL : Returned member details are not matching with configured group")
+            log.failed("Returned member details are not matching with configured group")
             return False
     except Exception as error:
-        print(f"FAIL: ovs-p4ctl add member Failed with error: {error}")
+        log.failed(f"p4rt-ctl add member Failed with error: {error}")
         return False
 
     return True
-
-
 
 
 def p4rt_ctl_get_member(bridge, tbl_name, member_id, member_details=None):
@@ -154,29 +156,40 @@ def p4rt_ctl_get_member(bridge, tbl_name, member_id, member_details=None):
         f = io.StringIO()
         with redirect_stdout(f):
             out = p4rt_ctl.p4ctl_get_member(bridge, tbl_name, member_id)
-        result = f.getvalue() 
+        result = f.getvalue()
         values = result.split("\n")
-        dict_var = re.findall('[a-z|_|=|.|0-9]+', values[1].strip())
+        dict_var = re.findall("[a-z|_|=|.|0-9]+", values[1].strip())
         member_returned = {}
         for i in dict_var:
             member_returned.update(dict([i.split("=")]))
 
         if out == None:
-            print(f"PASS: ovs-p4ctl get details for member {member_id} :  {member_returned}")
-        
+            log.passed(
+                f"p4rt-ctl get details for member {member_id} :  {member_returned}"
+            )
+
         if member_details != None:
-            action, action_data, mem_id = p4rt_ctl.parse_profile_mem(member_details + ',' + member_id)
-            if (tbl_name == member_returned["action_profiles"]) and (action == member_returned["actions"]) and (' '.join(map(str, action_data)) == member_returned["dst_port"]):
-                print("PASS : Returned member details matching with configured group")
+            action, action_data, mem_id = p4rt_ctl.parse_profile_mem(
+                member_details + "," + member_id
+            )
+            if (
+                (tbl_name == member_returned["action_profiles"])
+                and (action == member_returned["actions"])
+                and (" ".join(map(str, action_data)) == member_returned["dst_port"])
+            ):
+                log.passed("Returned member details matching with configured group")
             else:
-                print("FAIL : Returned member details are not matching with configured group")
+                log.failed(
+                    "Returned member details are not matching with configured group"
+                )
                 return False
- 
-        return member_returned    
+
+        return member_returned
 
     except Exception as error:
-        print(f"ovs-p4ctl get member Failed with error: {error}")
-        return False 
+        log.failed(f"p4rt-ctl get member Failed with error: {error}")
+        return False
+
 
 def p4rt_ctl_del_member(bridge, tbl_name, member_id):
     """
@@ -184,16 +197,15 @@ def p4rt_ctl_del_member(bridge, tbl_name, member_id):
     Example:
         p4rt_ctl_get_member('br0', 'ingress.as_sl3', 'member_id=1')
     """
- 
+
     try:
         out = p4rt_ctl.p4ctl_del_member(bridge, tbl_name, member_id)
         if out == None:
-            print(f"PASS: ovs-p4ctl del member {member_id}")
+            log.passed(f"p4rt-ctl del member {member_id}")
             return True
     except Exception as error:
-        print(f"FAIL: ovs-p4ctl del member Failed with error: {error}")
+        log.failed(f"p4rt-ctl del member Failed with error: {error}")
         return False
-
 
 
 def p4rt_ctl_add_group(bridge, tbl_name, group_details):
@@ -206,11 +218,11 @@ def p4rt_ctl_add_group(bridge, tbl_name, group_details):
     try:
         out = p4rt_ctl.p4ctl_add_group(bridge, tbl_name, group_details)
         if out == None:
-            print(f"PASS: ovs-p4ctl add group {group_details}")
+            log.passed(f"p4rt-ctl add group {group_details}")
             return True
 
     except Exception as error:
-        print(f"FAIL: ovs-p4ctl add group Failed with error: {error}")
+        log.failed(f"p4rt-ctl add group Failed with error: {error}")
         return False
 
 
@@ -225,28 +237,33 @@ def p4rt_ctl_add_group_and_verify(bridge, tbl_name, group_details):
     try:
         out = p4rt_ctl.p4ctl_add_group(bridge, tbl_name, group_details)
         if out == None:
-            print(f"PASS: ovs-p4ctl add group {group_details}")
+            log.passed(f"p4rt-ctl add group {group_details}")
         f = io.StringIO()
         with redirect_stdout(f):
-            out = p4rt_ctl.p4ctl_get_group(bridge, tbl_name, f'group_id={group_id}')
+            out = p4rt_ctl.p4ctl_get_group(bridge, tbl_name, f"group_id={group_id}")
         result = f.getvalue()
         values = result.split("\n")
-        group_returned = dict(substring.split("=") for substring in values[1].strip().split(" "))
+        group_returned = dict(
+            substring.split("=") for substring in values[1].strip().split(" ")
+        )
 
         if out == None:
-            print(f"PASS: ovs-p4ctl get details for group {group_id} :  {group_returned}")
-        if (tbl_name == group_returned["action_profiles"]) and (members == group_returned["reference_members"]) and (max_size == group_returned["max_size"]):
-            print("PASS: Returned group details matching with configured group")
+            log.passed(f"p4rt-ctl get details for group {group_id} :  {group_returned}")
+        if (
+            (tbl_name == group_returned["action_profiles"])
+            and (members == group_returned["reference_members"])
+            and (max_size == group_returned["max_size"])
+        ):
+            log.passed(" Returned group details matching with configured group")
         else:
-            print("FAIL : Returned group details are not matching with configured group")
+            log.failed("Returned group details are not matching with configured group")
             return False
-        
+
     except Exception as error:
-        print(f"FAIL: ovs-p4ctl add group Failed with error: {error}")
+        log.failed(f"p4rt-ctl add group Failed with error: {error}")
         return False
 
     return True
-
 
 
 def p4rt_ctl_del_group(bridge, tbl_name, group_id):
@@ -259,12 +276,11 @@ def p4rt_ctl_del_group(bridge, tbl_name, group_id):
     try:
         out = p4rt_ctl.p4ctl_del_group(bridge, tbl_name, group_id)
         if out == None:
-            print(f"PASS: ovs-p4ctl del group {group_id}")
+            log.passed(f"p4rt-ctl del group {group_id}")
             return True
     except Exception as error:
-        print(f"FAIL: ovs-p4ctl del group Failed with error: {error}")
+        log.failed(f"p4rt-ctl del group Failed with error: {error}")
         return False
-
 
 
 def p4rt_ctl_get_group(bridge, tbl_name, group_id, group_details=None):
@@ -281,37 +297,47 @@ def p4rt_ctl_get_group(bridge, tbl_name, group_id, group_details=None):
             out = p4rt_ctl.p4ctl_get_group(bridge, tbl_name, group_id)
         result = f.getvalue()
         values = result.split("\n")
-        group_returned = dict(substring.split("=") for substring in values[1].strip().split(" "))
+        group_returned = dict(
+            substring.split("=") for substring in values[1].strip().split(" ")
+        )
 
         if out == None:
-            print(f"PASS: ovs-p4ctl get details for group {group_id} :  {group_returned}")
-            
-        if group_details != None:
-            group_id, members, max_size = p4rt_ctl.parse_profile_group(group_id + ',' + group_details)
+            log.passed(f"p4rt-ctl get details for group {group_id} :  {group_returned}")
 
-            if (tbl_name == group_returned["action_profiles"]) and (members == group_returned["reference_members"]) and (max_size == group_returned["max_size"]):
-                print("PASS: Returned group details matching with configured group")
+        if group_details != None:
+            group_id, members, max_size = p4rt_ctl.parse_profile_group(
+                group_id + "," + group_details
+            )
+
+            if (
+                (tbl_name == group_returned["action_profiles"])
+                and (members == group_returned["reference_members"])
+                and (max_size == group_returned["max_size"])
+            ):
+                log.passed(" Returned group details matching with configured group")
             else:
-                print("FAIL: Returned group details are not matching with configured group")
+                log.failed(
+                    " Returned group details are not matching with configured group"
+                )
                 return False
 
-
         return group_returned
-    
+
     except Exception as error:
-        print(f"FAIL: ovs-p4ctl get group Failed with error: {error}")
+        log.failed(f"p4rt-ctl get group Failed with error: {error}")
         return False
-    
+
+
 def p4rt_ctl_get_counter_data(bridge, cnt_tbl_name, flow):
     """
     A function to build counter dictionary based on table and flow received
     :return a counter dictionary
     """
-    counter ={}
+    counter = {}
     try:
-        #The called function doesn't return value but print out the value.
-        #Thus using IO steam to capture the print out and parse it to 
-        #build counter data
+        # The called function doesn't return value but print out the value.
+        # Thus using IO steam to capture the print out and parse it to
+        # build counter data
         save_stdout = sys.stdout
         output = StringIO()
         sys.stdout = output
@@ -320,15 +346,18 @@ def p4rt_ctl_get_counter_data(bridge, cnt_tbl_name, flow):
         result = output.getvalue().split(",", 2)
         for item in result[0:2]:
             counter[item.split("=")[0].strip()] = item.split("=")[1].strip()
-       
-        for item in result[2].split("=",1)[1].replace("(","").replace(")","").split(","):
+
+        for item in (
+            result[2].split("=", 1)[1].replace("(", "").replace(")", "").split(",")
+        ):
             counter[item.split("=")[0].strip()] = int(item.split("=")[1].strip())
-            
+
         return counter
     except Exception as error:
-        print(f"FAIL: ovs-p4ctl add group Failed with error: {error}")
+        log.failed(f"p4rt-ctl add group Failed with error: {error}")
         return False
-        
+
+
 def p4rt_ctl_get_counter_table_and_id():
     """
     :Function to retieve all counter table name and their if from P4 information
@@ -336,26 +365,25 @@ def p4rt_ctl_get_counter_table_and_id():
     """
     table_name_and_id = []
     try:
-        client=p4rt_ctl.P4RuntimeClient(device_id=1)
-        p4info =client.get_p4info()
+        client = p4rt_ctl.P4RuntimeClient(device_id=1)
+        p4info = client.get_p4info()
         for i in range(len(p4info.counters)):
             table_name = p4info.counters[i].preamble.name
-            counter_id = p4info.counters[i].preamble.id 
+            counter_id = p4info.counters[i].preamble.id
             table_name_and_id.append((table_name, counter_id))
         client.tear_down()
     except Exception as error:
-        print(f"FAIL: unable to get p4info to: {error}")
+        log.failed(f" unable to get p4info to: {error}")
         return False
     return table_name_and_id
 
-def p4rt_ctl_reset_counter_entry( bridge, cnt_tbl_name, flow):
+
+def p4rt_ctl_reset_counter_entry(bridge, cnt_tbl_name, flow):
     """
     A utility function to reset counter
     reset-counter-entry SWITCH COUNTER_TABLE RESET_COUNTER_FLOW
     Example: 
-       ovs-p4ctl reset-counter br0 \
+      p4rt-ctl reset-counter br0 \
            ipv4_host_tbl_flow_counter_packets counter_id=303591076,index=1
     """
     p4rt_ctl.p4ctl_reset_counter_entry(bridge, cnt_tbl_name, flow)
-
-'''

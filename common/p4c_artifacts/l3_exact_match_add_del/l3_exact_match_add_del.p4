@@ -97,6 +97,7 @@ control packet_deparser(packet_out packet, out empty_metadata_t clone_i2e_meta, 
 control ingress(inout my_ingress_headers_t headers, inout local_metadata_t local_metadata1, in psa_ingress_input_metadata_t standard_metadata, inout psa_ingress_output_metadata_t ostd) {
     action send(PortId_t dst_port) {
  ostd.egress_port = (PortId_t)dst_port;
+ ostd.drop = false;
     }
 
     action drop() {
