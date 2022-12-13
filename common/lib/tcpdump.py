@@ -17,7 +17,8 @@
 
 from common.lib.local_connection import Local
 from common.lib.exceptions import ExecuteCMDException
-import subprocess 
+import subprocess
+
 
 class TcpDumpCap(object):
     def __init__(self):
@@ -46,18 +47,17 @@ class TcpDumpCap(object):
             self.local = Local()
             cmd = "which tcpdump"
             output, return_code, _ = self.local.execute_command(cmd)
-            if return_code: 
+            if return_code:
                 print(f"Error: Tcpdump is not installed")
 
-            self.cmd_prefix = 'tcpdump'
-
+            self.cmd_prefix = "tcpdump"
 
         def tcpdump_start_capture(self, params):
             """
             tcpdump command to start capture in background and supressed stdout
-            :param params: list of parameters for tcpdump capture 
+            :param params: list of parameters for tcpdump capture
             :type params: list
-            :return: none, exit code of executing tcpdump with the parameters 
+            :return: none, exit code of executing tcpdump with the parameters
             """
             paramstr = " "
             params = paramstr.join(map(str, params))
@@ -66,9 +66,8 @@ class TcpDumpCap(object):
             if return_code:
                 print(f"Failed to run the tcpdump capture command")
                 return False
-            else:    
+            else:
                 return output
-
 
         def tcpdump_tear_down(self):
             """
@@ -80,4 +79,3 @@ class TcpDumpCap(object):
                 print("tcpdump process terminated")
             else:
                 print("No tcpdump process to terminate")
-                    

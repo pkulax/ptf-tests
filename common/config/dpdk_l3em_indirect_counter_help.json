@@ -37,7 +37,7 @@
     "--help"
   ],
   "arguments": [
-    "get-counter SWITCH COUNTER_TABLE COUNTER_FLOW get Counter Entry from Indirect CounterTable",
-    "reset-counter SWITCH COUNTER_TABLE COUNTER_FLOW reset Counter Entry Table"
+    "get-counter SWITCH CTR_TBL CTR_FLOW   gets indirect counter table entry",
+    "reset-counter SWITCH CTR_TBL CTR_FLOW resets counter table entry"
   ]
 }

@@ -16,8 +16,12 @@
 from socket import error
 import paramiko
 import select
-from paramiko.ssh_exception import BadHostKeyException, AuthenticationException, \
-    SSHException
+import common.utils.log as log
+from paramiko.ssh_exception import (
+    BadHostKeyException,
+    AuthenticationException,
+    SSHException,
+)
 
 
 class Ssh:
@@ -55,11 +59,10 @@ class Ssh:
 
         try:
             self.ssh_client = paramiko.SSHClient()
-            self.ssh_client.set_missing_host_key_policy(
-                paramiko.AutoAddPolicy())
-            self.ssh_client.connect(hostname=self.hostname,
-                                    username=self.username,
-                                    password=self.passwrd)
+            self.ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            self.ssh_client.connect(
+                hostname=self.hostname, username=self.username, password=self.passwrd
+            )
             # print("Established ssh session.")
             return self.ssh_client
         except BadHostKeyException as BHK:
@@ -69,7 +72,8 @@ class Ssh:
         except SSHException as S:
             print(
                 "There was an error connecting or establishing SSH "
-                "connection: %s" % S)
+                "connection: %s" % S
+            )
         except error as E:
             print("Socket error occurred while connecting: %s" % E)
 
@@ -87,10 +91,11 @@ class Ssh:
         self.remote_cmd = remote_cmd
         self.timeout = timeout
         # Empty string buffer initialized to capture process STDOUT output
-        self.string_buffer = ''
+        self.string_buffer = ""
         try:
             stdin, stdout, stderr = self.ssh_client.exec_command(
-                self.remote_cmd, timeout=timeout)
+                self.remote_cmd, timeout=timeout
+            )
         except SSHException as S:
             print("Server fails to execute the command: %s" % S)
         except AttributeError as A:
@@ -102,27 +107,26 @@ class Ssh:
         # command on remote
 
         while not stdout.channel.exit_status_ready():
-            '''May not return exit status in some cases like bad servers'''
-            '''Until final exit status is not received, lets read the data'''
+            """May not return exit status in some cases like bad servers"""
+            """Until final exit status is not received, lets read the data"""
             if stdout.channel.recv_ready():
-                '''Returns true if data is buffered and ready to read from 
-                this terminal'''
-                rlist, wlist, xlist = select.select([stdout.channel], [], [],
-                                                    0.0)
-                '''Returns 3 new lists for stdout,stdin,stderr'''
+                """Returns true if data is buffered and ready to read from
+                this terminal"""
+                rlist, wlist, xlist = select.select([stdout.channel], [], [], 0.0)
+                """Returns 3 new lists for stdout,stdin,stderr"""
                 if len(rlist) > 0:
                     out = stdout.channel.recv(self.NBYTES)
-                    '''On failure returns empty string'''
-                    if out != '':
+                    """On failure returns empty string"""
+                    if out != "":
                         self.string_buffer += out.decode()
 
         # Code for handling stderr
-        errors = str(stderr.read().decode('utf-8'))
-        if errors == '':
+        errors = str(stderr.read().decode("utf-8"))
+        if errors == "":
             return self.string_buffer, 0, errors
         else:
-            print(f"Error in running given command, {self.remote_cmd}")
-            print(f"Error log:\n{errors}")
+            log.info(f"Error in running given command, {self.remote_cmd}")
+            log.info(f"Error log:\n{errors}")
             return self.string_buffer, -1, errors
 
     def tear_down(self):

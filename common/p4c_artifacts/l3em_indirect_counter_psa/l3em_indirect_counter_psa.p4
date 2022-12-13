@@ -120,6 +120,7 @@ control ingress(
 {
     action send(PortId_t port) {
         ostd.egress_port = (PortId_t) port;
+        ostd.drop = false;
     }
 
     action drop() {
