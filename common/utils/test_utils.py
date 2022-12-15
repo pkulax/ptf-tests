@@ -27,7 +27,7 @@ import subprocess
 import re
 import time
 import platform
-
+import pexpect
 
 from common.lib.local_connection import Local
 from common.lib.telnet_connection import connectionManager
@@ -1085,35 +1085,15 @@ def vm_netperf_client(conn, host, testlen, testname, option=""):
         .... omitted ....
         131072  16384     64    10.00     610.03
     """
-    max = 5
-    err_list, data = [], []
-    counter = {}
-    conn.readResult()
-    cmd = f"netperf -H {host} -l {testlen} -t {testname} {option}".replace("\xa0", " ")
-    conn.sendCmd(cmd)
-    output = conn.readResult()
-
+    max = 6
+    found = False
+    err_list, data, counter = [], [], {}
+    conn.readResult()  # read to clear previous buffer
     if testname == "UDP_STREAM":
         cnt_name = ["sckt_byte", "msg_byte", "elapsed", "msg_ok", "msg_erro", "throput"]
         n, data_len = 1, 6
-        try:
-            data = output.split("\n")[-4].strip().split()
-        except IndexError as e:
-            err_list.append(f"The {n} try error {e} and output \n\n{output}")
-            n += 1
-        # try max 5 times if failed
-        while len(data) != data_len:
-            conn.sendCmd(cmd)
-            output = conn.readResult()
-            try:
-                data = output.split("\n")[-4].strip().split()
-            except IndexError as e:
-                err_list.append(f"The {n} try error {e} and output \n\n{output}")
-            err_list.append(f"The {n} try failure: {output}")
-            if n >= max:
-                break
-            n += 1
     elif testname == "TCP_STREAM":
+        found = False
         cnt_name = [
             "recv_sckt_byte",
             "send_sckt_byte",
@@ -1122,44 +1102,40 @@ def vm_netperf_client(conn, host, testlen, testname, option=""):
             "throput",
         ]
         n, data_len = 1, 5
-        # try max 5 times if failed
-        try:
-            data = output.split("\n")[-2].strip().split()
-        except IndexError as e:
-            err_list.append(f"The {n} try error {e} and output \n\n{output}")
-            n += 1
-        while len(data) != data_len:
-            conn.sendCmd(cmd)
-            output = conn.readResult()
-            try:
-                data = output.split("\n")[-2].strip().split()
-            except IndexError as e:
-                err_list.append(f"The {n} try error {e} and output \n\n{output}")
-            if n >= max:
-                break
-            err_list.append(f"The {n} try failure: {output}")
-            n += 1
     else:
-        log.failed(f"No expect netperf execution data collected {output}")
+        print(f"FAIL: the stream {testname} is not defined. Please correct it")
         return False
 
-    if len(data) == data_len:
-        for i in range(len(data)):
-            # all data  should be either fload or int
-            if type(float(data[i])) == float:
-                counter[cnt_name[i]] = float(data[i])
-            elif type(int(data[i])) == int:
-                counter[cnt_name[i]] = int(data[i])
-            else:
-                log.failed(f"Send netperf client failed with {output}")
-                return False
-    else:
-        log.failed(
-            f"Send netperf client had {n} failure with error list \n\n{err_list}"
+    cmd = f"netperf -H {host} -l {testlen} -t {testname} {option}".replace("\xa0", " ")
+    conn.sendCmd(cmd)
+    while n < max:
+        output = conn.readResult()
+        for each in output.strip().split("\n"):
+            data = each.strip().split()
+            if len(data) == data_len:
+                try:
+                    if all(isinstance(float(item), float) for item in data):
+                        found = True
+                        for i in range(len(data)):
+                            counter[cnt_name[i]] = float(data[i])
+                        break
+                except:
+                    # checking netperf output data having all float number that indicate sucess
+                    # of netperf.do nothing and continue to check
+                    pass
+        if found:
+            break
+        else:
+            err_list.append(f"The {n} failure and its output {output}")
+
+        n += 1
+    if found == False:
+        print(
+            f"FAIL: Unable to collect netperf execution data after {n} tries due output\n{err_list}"
         )
         return False
 
-    log.passed(f"send {cmd} succeed with below output \n\n{output}\n")
+    print(f'PASS: successfully executed "{cmd}" with below output \n {output}')
     return counter
 
 
@@ -1458,13 +1434,13 @@ def restart_frr_service(remote=False, hostname="", username="", password=""):
     else:
         hostname = "local host"
         connection = Local()
-    _, _, err = connection.execute_command("service frr restart")
+    _, _, err = connection.execute_command("systemctl restart frr")
 
     if err:
         log.failed("faild to restart frr service")
         connection.tear_down()
         return False
-    log.passed(f'successfuly execute cmd "service frr restart" on {hostname}')
+    log.passed(f'successfuly execute cmd "systemctl restart frr" on {hostname}')
 
     connection.tear_down()
 
