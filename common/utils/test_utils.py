@@ -1643,7 +1643,7 @@ def verify_scapy_traffic_from_vm(vm_id, conn, config_data, traffic_type="unicast
 
     # printing summary of the packets
     print_scapy_pcap_summary(conn)
-    ##Killing python3 terminal
+    # Killing python3 terminal
     status = conn.sendCmd("exit()")
     if not status:
         log.failed("Failed to exit from python prompt")
