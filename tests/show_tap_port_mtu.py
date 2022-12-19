@@ -26,10 +26,12 @@ import ptf
 from ptf.base_tests import BaseTest
 from ptf.testutils import *
 from ptf import config
+import common.utils.log as log
+
 # framework related imports
 import common.utils.test_utils as test_utils
 from common.utils.config_file_utils import get_gnmi_params_simple, get_config_dict
-from common.utils.gnmi_cli_utils import gnmi_set_params, gnmi_get_element_value, get_port_mtu_linuxcli
+from common.utils.gnmi_ctl_utils import gnmi_set_params, gnmi_get_element_value, get_port_mtu_linuxcli
 from common.lib.port_config import PortConfig
 
 
@@ -42,13 +44,15 @@ class ShowTapPortMtu(BaseTest):
         config_json = test_params['config_json']
 
         self.config_data = get_config_dict(config_json)
-        self.gnmicli_params = get_gnmi_params_simple(self.config_data)
+        self.gnmictl_params = get_gnmi_params_simple(self.config_data)
 
 
     def runTest(self):
-        print(" ")
-        print("Assigning MTU to devices [ If no MTU is assigned, default value of 1500 is expected/assigned ]")
-        gnmi_set_params(self.gnmicli_params)
+        log.info(" ")
+        log.info("Assigning MTU to devices [ If no MTU is assigned, default value of 1500 is expected/assigned ]")
+
+        # Assigning MTU to devices [ If no MTU is assigned, default value of 1500 is expected/assigned ]
+        gnmi_set_params(self.gnmictl_params)
         port_list = self.config_data['port_list']
         port_config = PortConfig()
 
@@ -61,39 +65,39 @@ class ShowTapPortMtu(BaseTest):
                 if (port_details['name'] == port): 
                        assigned_mtu = port_details['mtu']
                        param='device:virtual-device,name:' + port  
-                       gnmicli_mtu = gnmi_get_element_value(param, 'mtu')
-                       if not gnmicli_mtu:
+                       gnmictl_mtu = gnmi_get_element_value(param, 'mtu')
+                       if not gnmictl_mtu:
                            self.result.addFailure(self, sys.exc_info())
                            self.fail(f"Failed to get MTU from GNMI-CLI for " + port + " port")
                        linuxcli_mtu=get_port_mtu_linuxcli(port)
                        if not linuxcli_mtu:
                            self.result.addFailure(self, sys.exc_info())
                            self.fail(f"Failed to get MTU from LINUX-CLI for " + port + " port")
-                       if assigned_mtu.strip() == gnmicli_mtu.strip() == linuxcli_mtu.strip():
+                       if assigned_mtu.strip() == gnmictl_mtu.strip() == linuxcli_mtu.strip():
                            if default_mtu:
-                                print("PASS: Port " + port + " MTU Assignment Match Expected MTU | Assigned[Default]: " + assigned_mtu.strip() + " GNMICLI: " \
-                                + gnmicli_mtu.strip()+ " LINUXCLI: " + linuxcli_mtu.strip())
+                                log.passed("Port " + port + " MTU Assignment Match Expected MTU | Assigned[Default]: " + assigned_mtu.strip() + " GNMICLI: " \
+                                + gnmictl_mtu.strip()+ " LINUXCLI: " + linuxcli_mtu.strip())
                            else:
-                                print("PASS: Port " + port + " MTU Assignment Match Expected MTU | Assigned: " + assigned_mtu.strip() + " GNMICLI: " \
-                                + gnmicli_mtu.strip()+ " LINUXCLI: " + linuxcli_mtu.strip())
+                                log.passed(" Port " + port + " MTU Assignment Match Expected MTU | Assigned: " + assigned_mtu.strip() + " GNMICLI: " \
+                                + gnmictl_mtu.strip()+ " LINUXCLI: " + linuxcli_mtu.strip())
                            return True
                        else:
                            if default_mtu:
-                                print("FAIL: Port " + port + " MTU Assignment Mismatch Expected MTU |  Assigned[Default]: " + assigned_mtu.strip() + " GNMICLI: " \
-                                + gnmicli_mtu.strip() + " LINUXCLI: " + linuxcli_mtu.strip())
+                                log.failed("FAIL: Port " + port + " MTU Assignment Mismatch Expected MTU |  Assigned[Default]: " + assigned_mtu.strip() + " GNMICLI: " \
+                                + gnmictl_mtu.strip() + " LINUXCLI: " + linuxcli_mtu.strip())
                                 self.result.addFailure(self, sys.exc_info())
                            else:
-                                print("FAIL: Port " + port + " MTU Assignment Mismatch Expected MTU |  Assigned: " + assigned_mtu.strip() + " GNMICLI: " \
-                                + gnmicli_mtu.strip() + " LINUXCLI: " + linuxcli_mtu.strip())
+                                log.failed("FAIL: Port " + port + " MTU Assignment Mismatch Expected MTU |  Assigned: " + assigned_mtu.strip() + " GNMICLI: " \
+                                + gnmictl_mtu.strip() + " LINUXCLI: " + linuxcli_mtu.strip())
                                 self.result.addFailure(self, sys.exc_info())
                        
 
     def tearDown(self):
 
         if self.result.wasSuccessful():
-            print("Test has PASSED")
+            log.passed("Test has PASSED")
         else:
-            print("Test has FAILED")
+            log.failed("Test has FAILED")
         
 
  
