@@ -10,7 +10,7 @@
             "port-type": "LINK",
             "pipeline-name": "pipe",
             "packet-dir": "network",
-            "ip_address": "1.1.1.2/24",
+            "ip_address": "1.1.1.3/24",
             "interface": "ens3",
       "mac": "00:e8:ca:11:aa:01",
             "single_cmd": "TRUE"
@@ -19,7 +19,7 @@
             "id": "2",
             "device": "virtual-device",
             "name": "net_vhost0",
-            "host" : "host1",
+            "host-name" : "host1",
             "socket-path":"/tmp/vhost-user-0",
             "queues":"1",
             "device-type":"VIRTIO_NET",
@@ -28,7 +28,7 @@
             "interface": "ens3",
             "ip_address": "1.1.1.1/24",
             "mac_local": "00:e8:ca:11:aa:01",
-            "remote_ip": "1.1.1.2"
+            "remote_ip": "1.1.1.3"
        }
     ],
     "table": [ 
@@ -39,7 +39,7 @@
             "type": "entry",
             "match_action": [
                     "headers.ipv4.dst_addr=1.1.1.1,action=ingress.send(0)",
-                    "headers.ipv4.dst_addr=1.1.1.2,action=ingress.send(1)"
+                    "headers.ipv4.dst_addr=1.1.1.3,action=ingress.send(1)"
             ]
    }
      ],

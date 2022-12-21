@@ -1,8 +1,7 @@
 {
   "switch": "br0",
   "p4file": "l3_exact_match",
-  "port":
-  [
+  "port": [
     {
       "id": "1",
       "device": "virtual-device",
@@ -32,24 +31,19 @@
       "mac_local": "00:e8:ca:11:bb:01"
     }
   ],
-
-  "table":
-  [
+  "table": [
     {
       "description": "table_for_dst_ip",
       "switch": "br0",
       "name": "ingress.ipv4_host_dst",
       "type": "entry",
-      "match_action":
-      [
+      "match_action": [
         "headers.ipv4.dst_addr=1.1.1.1,action=ingress.send(0)",
         "headers.ipv4.dst_addr=2.2.2.2,action=ingress.send(1)"
       ]
-   }
+    }
   ],
-
-  "vm":
-  [
+  "vm": [
     {
       "id": "1",
       "dst_nw": "2.2.2.0/24",
@@ -65,4 +59,4 @@
       "mac_remote": "00:e8:ca:11:aa:01"
     }
   ]
- }
+}

@@ -5,11 +5,11 @@
         {
             "id": "1",
             "device": "virtual-device",
-            "name":"net_vhost0",
-            "device-type":"VIRTIO_NET",
-            "queues":"1",
-            "host": "host1",
-            "socket-path":"/tmp/vhost-user-0",
+            "name": "net_vhost0",
+            "device-type": "VIRTIO_NET",
+            "queues": "1",
+            "host-name": "host1",
+            "socket-path": "/tmp/vhost-user-0",
             "port-type": "LINK",
             "pipeline-name": "pipe",
             "mempool-name": "MEMPOOL0",
@@ -19,16 +19,15 @@
             "mac": "00:00:01:00:00:0a",
             "single-cmd": "TRUE",
             "interface": "ens3"
-
         },
         {
             "id": "2",
             "device": "virtual-device",
-            "name":"net_vhost1",
-            "device-type":"VIRTIO_NET",
-            "queues":"1",
-            "host": "host2",
-            "socket-path":"/tmp/vhost-user-1",
+            "name": "net_vhost1",
+            "device-type": "VIRTIO_NET",
+            "queues": "1",
+            "host-name": "host2",
+            "socket-path": "/tmp/vhost-user-1",
             "port-type": "LINK",
             "pipeline-name": "pipe",
             "mempool-name": "MEMPOOL0",
@@ -40,7 +39,7 @@
             "interface": "ens3"
         }
     ],
-    "table": [ 
+    "table": [
         {
             "description": "table_for_configure_member",
             "switch": "br0",
@@ -60,23 +59,41 @@
                 "headers.ipv4.dst_addr=224.0.0.1,member_id=2",
                 "headers.ipv4.dst_addr=255.255.255.255,member_id=2"
             ]
-        } 
+        }
     ],
-     "traffic": 
-    {
-             "type": "tcp",
-             "send_port": [0, 0, 0],
-             "receive_port": [1, 1, 1],
-             "in_pkt_header": {
-                 "ip_src": ["2.2.2.2"],
-                 "ip_dst": ["1.1.1.1", "224.0.0.1", "255.255.255.255"]
-      },
-            "out_pkt_header": [],
-            "number_pkts": [10],
-            "pcap_file_name": ["log_ap1.pcap","log_ap2.pcap","log_ap3.pcap"]
+    "traffic": {
+        "type": "tcp",
+        "send_port": [
+            0,
+            0,
+            0
+        ],
+        "receive_port": [
+            1,
+            1,
+            1
+        ],
+        "in_pkt_header": {
+            "ip_src": [
+                "2.2.2.2"
+            ],
+            "ip_dst": [
+                "1.1.1.1",
+                "224.0.0.1",
+                "255.255.255.255"
+            ]
+        },
+        "out_pkt_header": [],
+        "number_pkts": [
+            10
+        ],
+        "pcap_file_name": [
+            "log_ap1.pcap",
+            "log_ap2.pcap",
+            "log_ap3.pcap"
+        ]
     },
-
-"vm":[
+    "vm": [
         {
             "id": "1",
             "dst_gw": "1.1.1.1",
@@ -91,8 +108,6 @@
             "remote_ip": "1.1.1.1",
             "mac_remote": "00:e8:ca:11:aa:01",
             "name": "VM1"
-
         }
-]
-
- }     
+    ]
+}
