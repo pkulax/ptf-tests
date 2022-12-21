@@ -40,10 +40,14 @@ from scapy.fields import *
 from scapy.all import *
 
 # framework related imports
-import common.utils.ovsp4ctl_utils as ovs_p4ctl
+import common.utils.p4rtctl_utils as p4rt_ctl
 import common.utils.test_utils as test_utils
-from common.utils.config_file_utils import get_config_dict, get_gnmi_params_simple
-from common.utils.gnmi_cli_utils import gnmi_cli_set_and_verify, gnmi_set_params
+from common.utils.config_file_utils import (
+    get_config_dict,
+    get_gnmi_params_simple,
+    get_interface_ipv4_dict,
+)
+from common.utils.gnmi_ctl_utils import gnmi_ctl_set_and_verify, ip_set_ipv4
 
 
 class DPDK_Action_Selector_CLI(BaseTest):
@@ -57,23 +61,22 @@ class DPDK_Action_Selector_CLI(BaseTest):
 
         self.config_data = get_config_dict(config_json)
 
-        self.gnmicli_params = get_gnmi_params_simple(self.config_data)
+        self.gnmictl_params = get_gnmi_params_simple(self.config_data)
 
 
     def runTest(self):
-        if not test_utils.gen_dep_files_p4c_ovs_pipeline_builder(self.config_data):
+        if not test_utils.gen_dep_files_p4c_tdi_pipeline_builder(self.config_data):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to generate P4C artifacts or pb.bin")
 
-        if not gnmi_cli_set_and_verify(self.gnmicli_params):
+        if not gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure gnmi cli ports")
-
 
         port_list = self.config_data['port_list']
 
         # set pipe line
-        if not ovs_p4ctl.ovs_p4ctl_set_pipe(self.config_data['switch'], self.config_data['pb_bin'], self.config_data['p4_info']):
+        if not p4rt_ctl.p4rt_ctl_set_pipe(self.config_data['switch'], self.config_data['pb_bin'], self.config_data['p4_info']):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to set pipe")
         
@@ -82,7 +85,7 @@ class DPDK_Action_Selector_CLI(BaseTest):
         print("Add action profile members")
         member_count = 0
         for member in table['member_details']:
-            if not ovs_p4ctl.ovs_p4ctl_add_member_and_verify(table['switch'],table['name'],member):
+            if not p4rt_ctl.p4rt_ctl_add_member_and_verify(table['switch'],table['name'],member):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to add member {member}")
             member_count+=1
@@ -90,35 +93,35 @@ class DPDK_Action_Selector_CLI(BaseTest):
         print("Creating action selector groups")
         group_count = 0
         for group in table['group_details']:
-            if not ovs_p4ctl.ovs_p4ctl_add_group_and_verify(table['switch'],table['name'],group):
+            if not p4rt_ctl.p4rt_ctl_add_group_and_verify(table['switch'],table['name'],group):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to add group {group}")
             group_count+=1
 
         print("Getting action selector members")
         for mem_id in table['del_member']:
-            if not ovs_p4ctl.ovs_p4ctl_get_member(table['switch'],table['name'],member_id=mem_id):
+            if not p4rt_ctl.p4rt_ctl_get_member(table['switch'],table['name'],member_id=mem_id):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to get member {mem_id}")
 
         print("Getting action selector groups")
         for grp_id in table['del_group']:
-            if not ovs_p4ctl.ovs_p4ctl_get_group(table['switch'],table['name'],group_id=grp_id):
+            if not p4rt_ctl.p4rt_ctl_get_group(table['switch'],table['name'],group_id=grp_id):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to add group {grp_id}")
      
         print("Deleting groups")
         for del_grp in table['del_group']:
-            ovs_p4ctl.ovs_p4ctl_del_group(table['switch'],table['name'],del_grp)
+            p4rt_ctl.p4rt_ctl_del_group(table['switch'],table['name'],del_grp)
                  
         print("Deleting members")    
         for index,del_mem in enumerate(table['del_member']):
             if index == 0 or index == 7:
-                ovs_p4ctl.ovs_p4ctl_del_member(table['switch'],table['name'],del_mem)
+                p4rt_ctl.p4rt_ctl_del_member(table['switch'],table['name'],del_mem)
 
         print("Checking deleted groups")    
         for grp_id in table['del_group']:
-            if ovs_p4ctl.ovs_p4ctl_get_group(table['switch'],table['name'],group_id=grp_id):
+            if p4rt_ctl.p4rt_ctl_get_group(table['switch'],table['name'],group_id=grp_id):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Deleted group check failed for {grp_id}")
             else:
@@ -127,7 +130,7 @@ class DPDK_Action_Selector_CLI(BaseTest):
         print("Checking deleted members")    
         for index,mem_id in enumerate(table['del_member']):
             if index == 0 or index == 7:
-                if ovs_p4ctl.ovs_p4ctl_get_member(table['switch'],table['name'],member_id=mem_id):
+                if p4rt_ctl.p4rt_ctl_get_member(table['switch'],table['name'],member_id=mem_id):
                     self.result.addFailure(self, sys.exc_info())
                     self.fail(f"Deleted member check failed for {mem_id}")
                 else:
@@ -136,7 +139,7 @@ class DPDK_Action_Selector_CLI(BaseTest):
         print("Checking undeleted member")
         for index,mem_id in enumerate(table['del_member']):
             if index in range(1,7): 
-                if not ovs_p4ctl.ovs_p4ctl_get_member(table['switch'],table['name'],member_id=mem_id):
+                if not p4rt_ctl.p4rt_ctl_get_member(table['switch'],table['name'],member_id=mem_id):
                     self.result.addFailure(self, sys.exc_info())
                     self.fail(f"Failed to get member {mem_id}")
 

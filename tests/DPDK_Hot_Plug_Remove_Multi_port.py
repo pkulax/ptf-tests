@@ -38,11 +38,16 @@ from scapy.fields import *
 from scapy.all import *
 
 # framework related imports
-import common.utils.ovsp4ctl_utils as ovs_p4ctl
+import common.utils.p4rtctl_utils as p4rt_ctl
 import common.utils.test_utils as test_utils
-from common.utils.config_file_utils import get_config_dict, get_gnmi_params_simple, get_gnmi_params_hotplug, get_interface_ipv4_dict, get_interface_ipv4_dict_hotplug, get_interface_mac_dict_hotplug, get_interface_ipv4_route_dict_hotplug, create_port_vm_map
-from common.utils.gnmi_cli_utils import gnmi_cli_set_and_verify, gnmi_set_params, ip_set_ipv4
 from common.lib.telnet_connection import connectionManager
+from common.utils.config_file_utils import (
+    get_config_dict,
+    get_gnmi_params_simple,
+    get_gnmi_params_hotplug,
+    get_interface_ipv4_dict,
+)
+from common.utils.gnmi_ctl_utils import gnmi_ctl_set_and_verify, gnmi_set_params, ip_set_ipv4
 
 
 class Dpdk_Hot_Plug(BaseTest):
@@ -64,9 +69,9 @@ class Dpdk_Hot_Plug(BaseTest):
         self.config_data = get_config_dict(config_json,vm_location_list=test_params['vm_location_list'])
         print(self.config_data)
 
-        self.gnmicli_params = get_gnmi_params_simple(self.config_data)
-        self.gnmicli_hotplug_params = get_gnmi_params_hotplug(self.config_data)
-        self.gnmicli_hotplug_delete_params = get_gnmi_params_hotplug(self.config_data,action="del")
+        self.gnmictl_params = get_gnmi_params_simple(self.config_data)
+        self.gnmictl_hotplug_params = get_gnmi_params_hotplug(self.config_data)
+        self.gnmictl_hotplug_delete_params = get_gnmi_params_hotplug(self.config_data,action="del")
         self.interface_ip_list = get_interface_ipv4_dict(self.config_data)
 
     def runTest(self):
@@ -82,10 +87,10 @@ class Dpdk_Hot_Plug(BaseTest):
         time.sleep(30)
         
         vm=self.config_data['vm'][0]
-        conn1 = connectionManager(vm['hotplug']['qemu-socket-ip'],vm['hotplug']['serial-telnet-port'],vm['vm_username'], password=vm['vm_password'])
+        conn1 = connectionManager(vm['qemu-hotplug-mode']['qemu-socket-ip'],vm['qemu-hotplug-mode']['serial-telnet-port'],vm['vm_username'], password=vm['vm_password'])
         
         vm1=self.config_data['vm'][1]
-        conn2 = connectionManager(vm1['hotplug']['qemu-socket-ip'],vm1['hotplug']['serial-telnet-port'],vm1['vm_username'], password=vm1['vm_password'])
+        conn2 = connectionManager(vm1['qemu-hotplug-mode']['qemu-socket-ip'],vm1['qemu-hotplug-mode']['serial-telnet-port'],vm1['vm_username'], password=vm1['vm_password'])
 
         vm1_command_list = ["ip a | egrep \"[0-9]*: \" | cut -d ':' -f 2"]
         result = test_utils.sendCmd_and_recvResult(conn1, vm1_command_list)[0]
@@ -97,11 +102,11 @@ class Dpdk_Hot_Plug(BaseTest):
         result = result.split("\n")
         vm2result1 = list(dropwhile(lambda x: 'lo\r' not in x, result))
 
-        if not gnmi_cli_set_and_verify(self.gnmicli_params):
+        if not gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure gnmi cli ports")
 
-        if not gnmi_cli_set_and_verify(self.gnmicli_hotplug_params):
+        if not gnmi_ctl_set_and_verify(self.gnmictl_hotplug_params):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure hotplug through gnmi")
 
@@ -130,7 +135,7 @@ class Dpdk_Hot_Plug(BaseTest):
         print("PASS: Added hotplug interface for vm1 ",vm1interfaces)
         print("PASS: Added hotplug interface for vm2 ",vm2interfaces)
 
-        if not gnmi_set_params(self.gnmicli_hotplug_delete_params):
+        if not gnmi_set_params(self.gnmictl_hotplug_delete_params):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to remove hotplug through gnmi")
 
