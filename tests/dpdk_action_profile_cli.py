@@ -41,6 +41,7 @@ from scapy.all import *
 
 # framework related imports
 # framework related imports
+import common.utils.log as log
 import common.utils.p4rtctl_utils as p4rt_ctl
 import common.utils.test_utils as test_utils
 from common.utils.config_file_utils import (
@@ -85,7 +86,7 @@ class DPDK_Action_Profile_CLI(BaseTest):
         # Add table entries
         table = self.config_data['table'][0]
 
-        print("Add action profile members")
+        log.info("Add action profile members")
         member_count = 0
         for member in table['member_details']:
             if not p4rt_ctl.p4rt_ctl_add_member_and_verify(table['switch'],table['name'],member):
@@ -93,31 +94,31 @@ class DPDK_Action_Profile_CLI(BaseTest):
                 self.fail(f"Failed to add member {member}")
             member_count+=1
 
-
-        print("Getting action profile members")
+        # Checking for action profile members
+        log.info("Checking for action profile members")
         for mem_id in table['del_member']:
             if not p4rt_ctl.p4rt_ctl_get_member(table['switch'],table['name'],member_id=mem_id):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to get member {mem_id}")
-
-                 
-        print("Deleting members")    
+      
+        # Deleting members
+        log.info("Deleting members")    
         for index,del_mem in enumerate(table['del_member']):
             if index == 0 or index == 7:
                 p4rt_ctl.p4rt_ctl_del_member(table['switch'],table['name'],del_mem)
 
-
-        print("Checking deleted members")    
+        # Checking for the deleted members, fail if deleted members exists
+        log.info("Checking deleted members")    
         for index,mem_id in enumerate(table['del_member']):
             if index == 0 or index == 7:
                 if p4rt_ctl.p4rt_ctl_get_member(table['switch'],table['name'],member_id=mem_id):
                     self.result.addFailure(self, sys.exc_info())
                     self.fail(f"Deleted member check failed for {mem_id}")
                 else:
-                    print("PASS: Expected failure message for deleted member")
+                    log.passed("PASS: Expected failure message for deleted member")
 
-
-        print("Checking undeleted member")
+        # Checking for undeleted member
+        log.info("Checking undeleted member")
         for index,mem_id in enumerate(table['del_member']):
             if index in range(1,7): 
                 if not p4rt_ctl.p4rt_ctl_get_member(table['switch'],table['name'],member_id=mem_id):
@@ -127,8 +128,8 @@ class DPDK_Action_Profile_CLI(BaseTest):
     def tearDown(self):
 
         if self.result.wasSuccessful():
-            print("Test has PASSED")
+            log.passed("Test has PASSED")
         else:
-            print("Test has FAILED")
+            self.fail("Test has FAILED")
 
  

@@ -40,6 +40,7 @@ from scapy.fields import *
 from scapy.all import *
 
 # framework related imports
+import common.utils.log as log
 import common.utils.p4rtctl_utils as p4rt_ctl
 import common.utils.test_utils as test_utils
 from common.utils.config_file_utils import (
@@ -60,29 +61,31 @@ class DPDK_Action_Selector_CLI(BaseTest):
         config_json = test_params['config_json']
 
         self.config_data = get_config_dict(config_json)
-
         self.gnmictl_params = get_gnmi_params_simple(self.config_data)
 
 
     def runTest(self):
+        # Compile p4 file using p4c compiler and generate binary using tdi pipeline builder
         if not test_utils.gen_dep_files_p4c_tdi_pipeline_builder(self.config_data):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to generate P4C artifacts or pb.bin")
 
+        # Create Ports using gnmi-ctl
         if not gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure gnmi cli ports")
 
         port_list = self.config_data['port_list']
 
-        # set pipe line
+        # Run Set-pipe command for set pipeline
         if not p4rt_ctl.p4rt_ctl_set_pipe(self.config_data['switch'], self.config_data['pb_bin'], self.config_data['p4_info']):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to set pipe")
         
         table = self.config_data['table'][0]
 
-        print("Add action profile members")
+        # Creating action_selector members
+        log.info("Add action profile members")
         member_count = 0
         for member in table['member_details']:
             if not p4rt_ctl.p4rt_ctl_add_member_and_verify(table['switch'],table['name'],member):
@@ -90,7 +93,8 @@ class DPDK_Action_Selector_CLI(BaseTest):
                 self.fail(f"Failed to add member {member}")
             member_count+=1
 
-        print("Creating action selector groups")
+        # Creating action_selector groups
+        log.info("Creating action selector groups")
         group_count = 0
         for group in table['group_details']:
             if not p4rt_ctl.p4rt_ctl_add_group_and_verify(table['switch'],table['name'],group):
@@ -98,45 +102,51 @@ class DPDK_Action_Selector_CLI(BaseTest):
                 self.fail(f"Failed to add group {group}")
             group_count+=1
 
-        print("Getting action selector members")
+        # Getting action_selector members
+        log.info("Getting action selector members")
         for mem_id in table['del_member']:
             if not p4rt_ctl.p4rt_ctl_get_member(table['switch'],table['name'],member_id=mem_id):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to get member {mem_id}")
 
-        print("Getting action selector groups")
+        log.info("Getting action selector groups")
         for grp_id in table['del_group']:
             if not p4rt_ctl.p4rt_ctl_get_group(table['switch'],table['name'],group_id=grp_id):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to add group {grp_id}")
      
-        print("Deleting groups")
+        # Deleting groups
+        log.info("Deleting groups")
         for del_grp in table['del_group']:
             p4rt_ctl.p4rt_ctl_del_group(table['switch'],table['name'],del_grp)
-                 
-        print("Deleting members")    
+
+        # Deleting members        
+        log.info("Deleting members")    
         for index,del_mem in enumerate(table['del_member']):
             if index == 0 or index == 7:
                 p4rt_ctl.p4rt_ctl_del_member(table['switch'],table['name'],del_mem)
 
-        print("Checking deleted groups")    
+        # Checking for deleted groups. If group still exists, testcase fails
+        log.info("Checking deleted groups")    
         for grp_id in table['del_group']:
             if p4rt_ctl.p4rt_ctl_get_group(table['switch'],table['name'],group_id=grp_id):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Deleted group check failed for {grp_id}")
             else:
-                print("PASS: Expected failure message for deleted group")
+                log.passed("PASS: Expected failure message for deleted group")
 
-        print("Checking deleted members")    
+        # Checking for deleted members. If member still exists, testcase fails
+        log.info("Checking deleted members")    
         for index,mem_id in enumerate(table['del_member']):
             if index == 0 or index == 7:
                 if p4rt_ctl.p4rt_ctl_get_member(table['switch'],table['name'],member_id=mem_id):
                     self.result.addFailure(self, sys.exc_info())
                     self.fail(f"Deleted member check failed for {mem_id}")
                 else:
-                    print("PASS: Expected failure message for deleted member")
+                    log.passed("PASS: Expected failure message for deleted member")
 
-        print("Checking undeleted member")
+        #checking for undeleted members. members should exist
+        log.info("Checking for undeleted member")
         for index,mem_id in enumerate(table['del_member']):
             if index in range(1,7): 
                 if not p4rt_ctl.p4rt_ctl_get_member(table['switch'],table['name'],member_id=mem_id):
@@ -146,8 +156,8 @@ class DPDK_Action_Selector_CLI(BaseTest):
     def tearDown(self):
 
         if self.result.wasSuccessful():
-            print("Test has PASSED")
+            log.passed("Test has PASSED")
         else:
-            print("Test has FAILED")
+            self.fail("Test has FAILED")
 
  

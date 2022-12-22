@@ -91,8 +91,8 @@ class L2_Exact_Match(BaseTest):
 
         for table in self.config_data['table']:
 
-            print(f"Scenario : l2 exact match : {table['description']}")
-            print(f"Adding {table['description']} rules")
+            log.info(f"Scenario : l2 exact match : {table['description']}")
+            log.info(f"Adding {table['description']} rules")
             for match_action in table['match_action']:
                 if not p4rt_ctl.p4rt_ctl_add_entry(table['switch'],table['name'], match_action):
                     self.result.addFailure(self, sys.exc_info())
@@ -100,7 +100,7 @@ class L2_Exact_Match(BaseTest):
             
             time.sleep(5)
             # forming 1st packet and sending to validate if rule-1 hits or not
-            print("sending packet to check if rule 1  hits")
+            log.info("sending packet to check if rule 1  hits")
             if table['description'] == "table_for_dst_mac":
                 pkt = simple_tcp_packet(eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac_1'])
             else:
@@ -110,7 +110,7 @@ class L2_Exact_Match(BaseTest):
             send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
             try:
                 verify_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][0]][1])
-                log.passed(f"PASS: Verification of packets passed, packet received as per rule 1")
+                log.passed("PASS: Verification of packets passed, packet received as per rule 1")
             except Exception as err:
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"FAIL: Verification of rule 1 packets sent failed with exception {err}")
@@ -127,7 +127,7 @@ class L2_Exact_Match(BaseTest):
             send_packet(self, port_ids[self.config_data['traffic']['send_port'][1]], pkt)
             try:
                 verify_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][1]][1])
-                log.passed(f"PASS: Verification of packets passed, packet received as per rule 2")
+                log.passed("PASS: Verification of packets passed, packet received as per rule 2")
             except Exception as err:
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"FAIL: Verification of rule 2 packets sent failed with exception {err}")
@@ -143,7 +143,7 @@ class L2_Exact_Match(BaseTest):
             send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
             try:
                 verify_no_packet_any(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][1]][1]])
-                log.passed(f"PASS: Verification of packets passed, packet dropped as per rule 3")
+                log.passed("PASS: Verification of packets passed, packet dropped as per rule 3")
             except Exception as err:
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"FAIL: Verification of rule 3 packets sent failed with exception {err}")
@@ -160,7 +160,7 @@ class L2_Exact_Match(BaseTest):
             try:
                 verify_no_packet_any(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][1]][0]])
                 log.passed(
-                    f"PASS: Verification of packets passed, packet dropped as per rule 4"
+                    "PASS: Verification of packets passed, packet dropped as per rule 4"
                 )
             except Exception as err:
                 self.result.addFailure(self, sys.exc_info())

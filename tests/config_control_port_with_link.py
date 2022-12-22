@@ -31,6 +31,7 @@ from ptf.testutils import *
 from ptf import config
 
 # framework related imports
+import common.utils.log as log
 import common.utils.p4rtctl_utils as p4rt_ctl
 import common.utils.ovs_utils as ovs_utils
 import common.utils.test_utils as test_utils
@@ -79,45 +80,48 @@ class Control_Port_Link(BaseTest):
         
         # Add table entries
         for table in self.config_data['table']:
-            print(f"Scenario : Control TAP with Link : {table['description']}")
-            print(f"Adding {table['description']} rules")
+            log.info(f"Scenario : Control TAP with Link : {table['description']}")
+            log.info(f"Adding {table['description']} rules")
             for match_action in table['match_action']:
                 if not p4rt_ctl.p4rt_ctl_add_entry(table['switch'],table['name'], match_action):
                     self.result.addFailure(self, sys.exc_info())
                     self.fail(f"Failed to add table entry {match_action}")
         
-        print (f"Starting tcpdump to capture any traffic through control port {self.control_port[0]}")
+        # Starting tcpdump on control port
+        log.info(f"Starting tcpdump to capture any traffic through control port {self.control_port[0]}")
         tcpdump_utils.tcpdump_start_pcap(self.control_port[0])
         
         # waiting for more traffic
         time.sleep(5)
-        print (f"Verify if any traffic is captured in contorl port")
+
+        # Verifying pcap on the control port
+        log.info("Verify if any traffic is captured in contorl port")
         if tcpdump_utils.tcpdump_get_pcap(self.control_port[0]):
-            print(f"PASS: There are some control traffic via control port{self.control_port[0]}")
+            log.passed(f"PASS: There are some control traffic via control port{self.control_port[0]}")
         else:
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"FAIL: No traffic seen in control pot {self.control_port[0]}")
 
     def tearDown(self):
         # Deleting members 
-        print (f'Start to tear down')
+        log.info('Start to tear down')
         for table in self.config_data['table']:
-            print(f"Delete {table['description']} rules")
+            log.info(f"Delete {table['description']} rules")
             for del_action in table['del_action']:
                 p4rt_ctl.p4rt_ctl_del_entry(table['switch'], table['name'], del_action.split(",")[0])
                 
-        print (f"Check if any tcpdump is running and tear down it")
+        log.info("Check if any tcpdump is running and tear down it")
         tcpdump_utils.tcpdump_tear_down()
 
         # Removing pcap file
         result = tcpdump_utils.tcpdump_remove_pcap_file(self.control_port[0])
         if result: 
-            print (f"Remove exiting pcap file directory {result}")
+            log.passed(f"Remove exiting pcap file directory {result}")
         else:
-            self.fail(f"FAIL: Unable to remove exising pcap file")
+            self.fail("FAIL: Unable to remove exising pcap file")
             
         if self.result.wasSuccessful():
-            print("Test has PASSED")
+            log.passed("Test has PASSED")
         else:
-            print("Test has FAILED")
+            self.fail("Test has FAILED")
       
