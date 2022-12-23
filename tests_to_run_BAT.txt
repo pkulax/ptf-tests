@@ -14,7 +14,7 @@
 #
 ########################################
 # This file is passed as CLI argument to the script p4ovs_test_runner.py
-# Please refer to the help document of p4ovs_test_runner.py
+# Please refer to the help document of ipdk_test_runner.py
 # or README under ptf_tests folder for more details
 # This is a subset of the file tests_to_run.txt
 # and contains the Basic Acceptance Tests for a quick sanity check

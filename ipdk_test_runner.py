@@ -26,23 +26,26 @@ import time
 from itertools import dropwhile
 
 def replaceAll(file,searchExp,replaceExp):
+    pat=r"\b"+searchExp
     for line in fileinput.input(file, inplace=1):
-        if searchExp in line:
+        if re.search(pat, line):
             line = line.replace(searchExp,replaceExp)
         sys.stdout.write(line)
 
 class MyParser(argparse.ArgumentParser):
     def print_help(self):
         print ("""
-usage: p4ovs_test_runner.py [-h] -f FILE -s P4SDE_INSTALL_PATH -o P4OVS_INSTALL_PATH [-vm VM_LOCATION_LIST] [-bdf PCI_BDF] [-d P4DEP_INSTALL_PATH] [-l LOG_FILE] [--verbose]
+usage: ipdk_test_runner.py [-h] -f FILE -s P4SDE_INSTALL_PATH -o IPDK_RECIPE_PATH -d DEP_LIB [-vm VM_LOCATION_LIST] [-bdf PCI_BDF] [-lnt_bdf LNT_BDF1,LNT_BDF2] -client '<remote_ip>,<username>,<password>'] [-port REMOTE_PORT1,REMOTE_PORT2] [-l LOG_FILE] [--verbose]
 
 mandatory arguments:
     -f FILE, --file FILE  Reads the test suite file default location ptf_tests/ . if kept in a different location, then mention absolute file name. This
                         file consists tests scripts to run (without .py extension) and the corresponding "test-params"
     -s P4SDE_INSTALL_PATH, --p4sde_install_path P4SDE_INSTALL_PATH
                         Absolute P4SDE Install path
-    -o P4OVS_INSTALL_PATH, --p4ovs_install_path P4OVS_INSTALL_PATH
-                        Absolute P4OVS Install path
+    -o IPDK_RECIPE_PATH, --ipdk_recipe_path IPDK_RECIPE_PATH
+                        Absolute IPDK Recipe path
+    -d DEP_LIB, --dep_lib_path DEP_LIB_PATH
+                        Absolute Dependency Lib path
 
 optional arguments:
     -h, --help            show this help message and exit
@@ -50,12 +53,12 @@ optional arguments:
                         Absolute vm image location path(s) separated by comma
     -bdf PCI_BDF, --pci_bdf PCI_BDF
                         PCI BDF list separated by comma
+    -lnt_bdf LNT_BDF, --lnt_pci_bdfs LNT_BDF
+                        PCI BDF connected back to back for LNT scenario, separated by comma
     -port REMOTE_PORT, --remote_port REMOTE_PORT
                         REMOTE_PORT list separated by comma
     -client CLIENT_CRED, --client_cred CLIENT_CRED
                         CLIENT cretials in the format of hostname, user,passwrod
-    -d P4DEP_INSTALL_PATH, --p4dep_install_path P4DEP_INSTALL_PATH
-                        Absolute P4OVS Dependency Install path
     -l LOG_FILE, --log_file LOG_FILE
                         name of the log file, by default located in ptf_tests/
     --verbose prints ptf logs in the console
@@ -72,8 +75,10 @@ parser = MyParser()
 parser.add_argument('-f', '--file', type=str, required=True, help=help_message_f)
 parser.add_argument('-s', '--p4sde_install_path', type=str, required=True,
                     help="Absolute P4SDE Install path")
-parser.add_argument('-o', '--p4ovs_install_path', type=str, required=True,
-                    help="Absolute P4OVS Install path")
+parser.add_argument('-o', '--ipdk_recipe_path', type=str, required=True,
+                    help="Absolute IPDK Recipe path")
+parser.add_argument('-d', '--dep_lib_path', type=str, required=True,
+                    help="Absolute Dependency Lib path")
 parser.add_argument('-vm', '--vm_location_list', type=str, required=False,
                     help="Absolute vm image location path(s) separated by comma")
 parser.add_argument('-bdf', '--pci_bdfs', type=str, required=False,
@@ -82,15 +87,13 @@ parser.add_argument('-port', '--remote_port', type=str, required=False,
                     help="Remote Port list separated by comma")
 parser.add_argument('-client', '--client_cred', type=str, required=False,
                     help="Client Credential like hostname, user,password")
-parser.add_argument('-d', '--p4dep_install_path', type=str, required=False,
-                    help="Absolute P4OVS Dependency Install path")
+parser.add_argument('-lnt_bdf', '--lnt_pci_bdfs', type=str, required=False,
+                    help="PCI BDF connected back to back for LNT scenario, separated by comma")
 parser.add_argument('-l', '--log_file', type=str, required=False,
                     help="name of the log file, by default located in ptf_tests/")
 parser.add_argument('--verbose', action="store_true", help="prints ptf logs in the console")
 args = parser.parse_args()
 
-if not args.p4dep_install_path:
-    args.p4dep_install_path = ""
 
 # Check if 'file' exists
 if not os.path.exists(args.file):
@@ -113,6 +116,15 @@ try:
         test_params={}
         for k,v in enumerate(args.pci_bdfs.split(',')):
             test_params['BDF'+str(k+1)]=v
+        for searchExp, replaceExp in test_params.items():
+            print(f"replacing {searchExp} with {replaceExp}")
+            replaceAll(args.file,searchExp,replaceExp)
+
+    # Dynamically update the tests_to_run file with LNT PCI BDF info
+    if args.lnt_pci_bdfs:
+        test_params={}
+        for k,v in enumerate(args.lnt_pci_bdfs.split(',')):
+            test_params['LNT_BDF'+str(k+1)]=v
         for searchExp, replaceExp in test_params.items():
             print(f"replacing {searchExp} with {replaceExp}")
             replaceAll(args.file,searchExp,replaceExp)
@@ -152,12 +164,14 @@ try:
             test_to_run[items[0].strip()] = ':'.join(items[1:]).strip()
             sequence.append(items[0])
     test_to_run['sequence'] = sequence
+except Exception as err:
+    print(f"Exception occurred: {err}")
 
     results = {}
     for test in test_to_run['sequence']:
         time.sleep(2)
         process = subprocess.Popen('/bin/bash', stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        cmd = f"""source pre_test.sh {args.p4sde_install_path} {args.p4ovs_install_path} {args.p4dep_install_path}
+        cmd = f"""source pre_test.sh {args.p4sde_install_path} {args.ipdk_recipe_path} {args.dep_lib_path}
         sleep 2
         ptf --test-dir tests/ {test} --pypath $PWD --test-params="{test_to_run[test]}" --platform=dummy
         """
@@ -215,3 +229,4 @@ except Exception as err:
 finally:
     print(f"Restoring {args.file}")
     subprocess.run("mv %s.bkp %s"%(args.file,args.file), shell=True)
+
