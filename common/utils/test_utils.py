@@ -567,28 +567,18 @@ def ovs_add_ctrl_port_to_bridge(bridge, port_list, p4_device_id):
     """
     ovs-vsctl add-port BRIDGE CONTROL_PORT
     Example:
-        ovs-vsctl add-p4-device 1
         ovs-vsctl add-br br1
-        ovs-vsctl add-br-p4 br1 1
         ovs-vsctl add-port br1 TAP0
     """
     ovs = Ovs(get_connection_object())
-
-    out, returncode, err = ovs.vsctl.add_p4_device(p4_device_id)
-    if returncode:
-        log.failed(
-            f"Failed to add p4_device {p4_device_id} in bridge {bridge} due to {out} {err}"
-        )
-        return False
+    
+    # Add a brigdge
     out, returncode, err = ovs.vsctl.add_br(bridge)
     if returncode:
         log.failed(f"Failed to add bridge {bridge} due to {out} {err}")
         return False
-    out, returncode, err = ovs.vsctl.add_br_p4(bridge, 1)
-    if returncode:
-        log.failed(f"Failed to add bridge {bridge} in p4 device due to {out} {err}")
-        return False
-    # adding port into ovs bridge
+    
+    # Add port into ovs bridge
     for port in port_list:
         out, returncode, err = ovs.vsctl.add_port(bridge, port)
         if returncode:
@@ -596,7 +586,6 @@ def ovs_add_ctrl_port_to_bridge(bridge, port_list, p4_device_id):
             return False
 
     return True
-
 
 def get_ovs_port_dump(bridge, ctrl_port_list):
     """

@@ -8,7 +8,7 @@ PTF is a Python based dataplane test framework. It is based on unittest, which
 is included in the standard Python distribution. 
 More details on PTF: https://github.com/p4lang/ptf 
 
-This document is meant to provide a step by step guide on how to run the p4ovs tests using the ptf framework
+This document is meant to provide a step by step guide on how to run the ipdk tests using the ptf framework
 
 ---
 
@@ -111,7 +111,7 @@ The following directory structure is a pre-requisite to run the tests. All steps
 
 # Pre-requisite
 
-P4OVS, P4SDE and P4C should be installed before running the tests
+ipdk networking recipe, P4SDE and P4C should be installed before running the tests
 
 ---
 
@@ -126,7 +126,7 @@ P4OVS, P4SDE and P4C should be installed before running the tests
 # Pre Test
 
 ```console
-~ source pre_test.sh <SDE_INSTALL_PATH> <P4OVS_INSTALL_PATH> [P4OVS_DEPS_INSTALL_PATH]
+~ source pre_test.sh <SDE_INSTALL_PATH> <IPDK_RECIPE_PATH> <DEPEND_INSTALL_PATH>
 ```
 
 # Running the test
@@ -143,53 +143,41 @@ E.g. `ptf --test-dir tests/ l3_exact_match_with_tap_port --pypath $PWD --test-pa
 
 ## Running tests in a suite
 
-To run multiple tests in a suite, we need to use the script p4ovs_test_runner.py.
+To run multiple tests in a suite, we need to use the script ipdk_test_runner.py.
 
-E.g. `python p4ovs_test_runner.py -f tests_to_run.txt -s /home/admin/djayakum/drop-1/P4SDE/install/ -o /home/admin/djayakum/drop-1/P4OVS -vm /home/admin2/vm/ubuntu-20.04-server-cloudimg-amd64_1.img,/home/admin2/vm/ubuntu-20.04-server-cloudimg-amd64_2.img -bdf 0000:af:00.0,0000:af:00.1  --log_file ptf_tests.log --verbose`
+E.g. `python ipdk_test_runner.py -f tests_to_run.txt -s  /root/dkaranjai/drop7/p4sde/install/ -o /root/dkaranjai/drop7/ipdk-recipe/ -d /root/dkaranjai/drop7/DEP_LIB/ -vm /home/saldju/VM/ubuntu-20.04-server-cloudimg-amd64_1.img,/home/saldju/VM/ubuntu-20.04-server-cloudimg-amd64_5.img,/home/saldju/VM/ubuntu-20.04-server-cloudimg-amd64_2.img,/home/saldju/VM/ubuntu-20.04-server-cloudimg-amd64_4.img -lnt_bdf 0000:af:00.0,0000:af:00.1 -bdf 0000:c1:00.0 -client '10.233.134.175,root,cloudsw' -port ens802f0,ens802f1 --log_file ptf_tests_run_frr_1.log --verbose`
 
 ```console
-~ python p4ovs_test_runner.py -h
+~ python ipdk_test_runner.py -h
 
-usage: p4ovs_test_runner.py [-h] -f FILE -s P4SDE_INSTALL_PATH -o P4OVS_INSTALL_PATH [-vm VM_LOCATION_LIST] [-bdf PCI_BDF] [-d P4DEP_INSTALL_PATH] [-l LOG_FILE] [--verbose]
-
+usage: ipdk_test_runner.py [-h] -f FILE -s P4SDE_INSTALL_PATH -o IPDK_RECIPE_PATH -d DEP_LIB [-vm VM_LOCATION_LIST] [-bdf PCI_BDF] [-lnt_bdf LNT_BDF1,LNT_BDF2] -client '<remote_ip>,<username>,<password>'] [-port REMOTE_PORT1,REMOTE_PORT2] [-l LOG_FILE] [--verbose]
 
 mandatory arguments:
-
     -f FILE, --file FILE  Reads the test suite file default location ptf_tests/ . if kept in a different location, then mention absolute file name. This
-
                         file consists tests scripts to run (without .py extension) and the corresponding "test-params"
-
     -s P4SDE_INSTALL_PATH, --p4sde_install_path P4SDE_INSTALL_PATH
-
                         Absolute P4SDE Install path
-
-    -o P4OVS_INSTALL_PATH, --p4ovs_install_path P4OVS_INSTALL_PATH
-
-                        Absolute P4OVS Install path
-
-
+    -o IPDK_RECIPE_PATH, --ipdk_recipe_path IPDK_RECIPE_PATH
+                        Absolute IPDK Recipe path
+    -d DEP_LIB, --dep_lib_path DEP_LIB_PATH
+                        Absolute Dependency Lib path
 
 optional arguments:
-
     -h, --help            show this help message and exit
-
     -vm VM_LOCATION_LIST, --vm_location_list VM_LOCATION_LIST
-
                         Absolute vm image location path(s) separated by comma
-
     -bdf PCI_BDF, --pci_bdf PCI_BDF
-
                         PCI BDF list separated by comma
-
-    -d P4DEP_INSTALL_PATH, --p4dep_install_path P4DEP_INSTALL_PATH
-
-                        Absolute P4OVS Dependency Install path
-
+    -lnt_bdf LNT_BDF, --lnt_pci_bdfs LNT_BDF
+                        PCI BDF connected back to back for LNT scenario, separated by comma
+    -port REMOTE_PORT, --remote_port REMOTE_PORT
+                        REMOTE_PORT list separated by comma
+    -client CLIENT_CRED, --client_cred CLIENT_CRED
+                        CLIENT cretials in the format of hostname, user,passwrod
     -l LOG_FILE, --log_file LOG_FILE
-
                         name of the log file, by default located in ptf_tests/
-
     --verbose prints ptf logs in the console
+
 ```
 
 # Post Test
