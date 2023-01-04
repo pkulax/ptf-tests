@@ -164,9 +164,7 @@ try:
             test_to_run[items[0].strip()] = ':'.join(items[1:]).strip()
             sequence.append(items[0])
     test_to_run['sequence'] = sequence
-except Exception as err:
-    print(f"Exception occurred: {err}")
-
+    
     results = {}
     for test in test_to_run['sequence']:
         time.sleep(2)
@@ -192,7 +190,7 @@ except Exception as err:
         fh.truncate()
         fh.seek(0)
         e = datetime.datetime.now()
-        fh.write(f"P4OVS tests log as on : {e.strftime('%Y-%m-%d %H:%M:%S')}")
+        fh.write(f"IPDK Networking Recipe tests log as on : {e.strftime('%Y-%m-%d %H:%M:%S')}")
         for test in test_to_run['sequence']:
             if args.verbose:
                 fh.write("\n\n"+"="*20+f"\n{test}\n"+"="*20+"\n")
@@ -202,7 +200,7 @@ except Exception as err:
     for test in test_to_run['sequence']:
         pattern_found = False
         for line in results[test].split('\n'):
-            m = re.match(pattern, line)
+            m = re.search(pattern, line)
             if m:
                 pattern_found = True
                 summary.append((test, m.groups()[0]))
