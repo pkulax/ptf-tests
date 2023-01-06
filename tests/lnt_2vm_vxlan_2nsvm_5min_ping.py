@@ -61,7 +61,7 @@ class LNT_2vm_vxlan_2nsvm_5min_ping(BaseTest):
 
         self.config_data = get_config_dict(
             config_json,
-            pci_bdf=test_params["pci_bdf"],
+            pci_bdf=test_params["lnt_pci_bdf"],
             vm_location_list=test_params["vm_location_list"],
             vm_cred=self.vm_cred,
             client_cred=test_params["client_cred"],
@@ -80,11 +80,6 @@ class LNT_2vm_vxlan_2nsvm_5min_ping(BaseTest):
         # Configure OVS, VM, VLAN adn VXLAN on Local Host #
         # ------------------------------------------------- #
         log.info(f"Begin to configure OVVS and VM on local host")
-        """
-        if not test_utils.gen_dep_files_p4c_dpdk_pna_ovs_pipeline_builder(self.config_data):
-            self.result.addFailure(self, sys.exc_info())
-            self.fail("Failed to generate P4C artifacts or pb.bin")
-        """
         if not gnmi_ctl_utils.gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure gnmi ctl ports")
@@ -143,7 +138,7 @@ class LNT_2vm_vxlan_2nsvm_5min_ping(BaseTest):
         ):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to generate P4C artifacts or pb.bin")
-
+            
         # set pipe line
         if not p4rt_ctl.p4rt_ctl_set_pipe(
             self.config_data["switch"],
@@ -358,7 +353,7 @@ class LNT_2vm_vxlan_2nsvm_5min_ping(BaseTest):
         log.info("close VM telnet session")
         for conn in self.conn_obj_list:
             conn.close()
-
+        
     def tearDown(self):
         log.info("Begin to teardown ...")
         log.info("Delete match action rules on local host")
@@ -389,11 +384,6 @@ class LNT_2vm_vxlan_2nsvm_5min_ping(BaseTest):
                 self.fail(
                     f"Failed to delete VM namesapce {namespace['name']} on {self.config_data['client_hostname']}"
                 )
-
-        # remove local bridge
-        if not ovs_utils.del_bridge_from_ovs(self.config_data["bridge"]):
-            self.result.addFailure(self, sys.exc_info())
-            self.fail(f"Failed to delete bridge {self.config_data['bridge']} from ovs")
 
         # remote bridge
         if not ovs_utils.del_bridge_from_ovs(

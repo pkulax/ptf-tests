@@ -64,7 +64,7 @@ class LNT_ECMP_2HotPlugVM_2Host_Netperf(BaseTest):
 
         self.config_data = get_config_dict(
             config_json,
-            pci_bdf=test_params["pci_bdf"],
+            pci_bdf=test_params["lnt_pci_bdf"],
             vm_location_list=test_params["vm_location_list"],
             vm_cred=self.vm_cred,
             client_cred=test_params["client_cred"],
@@ -87,8 +87,6 @@ class LNT_ECMP_2HotPlugVM_2Host_Netperf(BaseTest):
         log.info("Begin to configure OVS and VM on local host")
         # Create VM
         result, vm_name = test_utils.vm_create_with_hotplug(self.config_data)
-        log.info(result)
-        log.info(vm_name)
         if not result:
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed to create {vm_name}")
@@ -211,7 +209,7 @@ class LNT_ECMP_2HotPlugVM_2Host_Netperf(BaseTest):
         ):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to generate P4C artifacts or pb.bin")
-
+        
         # Run Set-pipe command for set pipeline
         if not p4rt_ctl.p4rt_ctl_set_pipe(
             self.config_data["switch"],
@@ -739,11 +737,6 @@ class LNT_ECMP_2HotPlugVM_2Host_Netperf(BaseTest):
                 self.fail(
                     f"Failed to delete VM namesapce {namespace['name']} on {self.config_data['client_hostname']}"
                 )
-
-        # remove local bridge
-        if not ovs_utils.del_bridge_from_ovs(self.config_data["bridge"]):
-            self.result.addFailure(self, sys.exc_info())
-            self.fail(f"Failed to delete bridge {self.config_data['bridge']} from ovs")
 
         # remote bridge
         if not ovs_utils.del_bridge_from_ovs(

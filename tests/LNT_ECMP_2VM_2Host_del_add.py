@@ -59,7 +59,7 @@ class LNT_ECMP_DEL_ADD_RULE(BaseTest):
 
         self.config_data = get_config_dict(
             config_json,
-            pci_bdf=test_params["pci_bdf"],
+            pci_bdf=test_params["lnt_pci_bdf"],
             vm_location_list=test_params["vm_location_list"],
             vm_cred=self.vm_cred,
             client_cred=test_params["client_cred"],
@@ -75,10 +75,10 @@ class LNT_ECMP_DEL_ADD_RULE(BaseTest):
         # Generate p4c artifact and create binary by using tdi pna arch
         if not test_utils.gen_dep_files_p4c_dpdk_pna_tdi_pipeline_builder(
             self.config_data
-        ):
+        ):  
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to generate P4C artifacts or pb.bin")
-
+        
         # Create ports using gnmi-ctl
         if not gnmi_ctl_utils.gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
@@ -445,7 +445,7 @@ class LNT_ECMP_DEL_ADD_RULE(BaseTest):
             conn.close()
 
     def tearDown(self):
-
+       
         log.info("Unconfiguration on local host")
         log.info(f"Delete p4ovs match action rules on local host")
         for table in self.config_data["table"]:
@@ -502,12 +502,7 @@ class LNT_ECMP_DEL_ADD_RULE(BaseTest):
                     f"Failed to delete VM namesapce {namespace['name']} on {self.config_data['client_hostname']}"
                 )
 
-        # remove local bridge
-        if not ovs_utils.del_bridge_from_ovs(self.config_data["bridge"]):
-            self.result.addFailure(self, sys.exc_info())
-            self.fail(f"Failed to delete bridge {self.config_data['bridge']} from ovs")
-
-        # remote bridge
+        # delete remote bridge
         if not ovs_utils.del_bridge_from_ovs(
             self.config_data["bridge"],
             remote=True,

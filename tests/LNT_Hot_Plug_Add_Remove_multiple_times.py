@@ -319,11 +319,6 @@ class LNT_Hot_Plug(BaseTest):
             for del_action in table["del_action"]:
                 p4rt_ctl.p4rt_ctl_del_entry(table["switch"], table["name"], del_action)
 
-        # Delete bridge
-        if not ovs_utils.del_bridge_from_ovs(self.config_data["bridge"]):
-            self.result.addFailure(self, sys.exc_info())
-            self.fail(f"Failed to delete bridge {self.config_data['bridge']} from ovs")
-
         # Delete vlan
         for i in range(2):
             id = self.config_data["port"][i]["vlan"]

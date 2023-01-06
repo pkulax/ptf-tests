@@ -228,7 +228,16 @@ class Dpdk_Link_Flapping(BaseTest):
         portconfig_obj.Ip.iplink_enable_disable_link(
             phy_interface1, status_to_change="up"
         )
-
+       
+        # Now Add neighbour entry
+        log.info("Add neigh entry on  PHY1 interface...")
+        portconfig_obj = port_config.PortConfig()
+        portconfig_obj.Ip.ip_neigh_add(
+            phy_interface1,
+            self.config_data["port"][1]["remote_ip"],
+            self.config_data["port"][1]["mac_local"],
+        )
+        
         # ping test between VM to link port after up the port
         time.sleep(5)
         log.info("----------------------------------------------------------------")
