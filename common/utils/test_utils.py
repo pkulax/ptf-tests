@@ -1628,3 +1628,30 @@ def print_scapy_pcap_summary(conn):
 
     output = conn.readResult()
     log.info(f"Printing Packet Capture Summary\n: {output}")
+
+
+def create_yaml_file_from_template(pod_name, infile="test_pod_template.yaml"):
+    """
+    Util function to create pod yaml files from template
+    params:
+    pod_name: string
+
+    returns:
+    outfile: string
+    """
+    TAG = "POD_NAME"
+    yaml_path = os.sep.join([os.getcwd(), "common", "config"])
+    infile = yaml_path + os.sep + infile
+    outfile = yaml_path + os.sep + pod_name + ".yaml"
+
+    local = Local()
+
+    cmd = f'sed "s/{TAG}/{pod_name}/" {infile} > {outfile}'
+    _,returncode,err = local.execute_command(cmd)
+
+    if err or returncode:
+        log.failed(f"Failed to create {outfile} from {infile}")
+        return False
+
+    log.info(f"{outfile} Created ...")
+    return outfile

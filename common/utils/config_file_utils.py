@@ -18,6 +18,7 @@ util lib for parsing config json files
 """
 import json
 import os
+import yaml
 from typing import Union
 import common.utils.log as log
 
@@ -433,3 +434,22 @@ def get_interface_mac_dict_hotplug(data: dict, interfaces: list) -> list:
         interface_mac_list.append({interface: mac})
 
     return interface_mac_list
+
+
+def convert_yaml_to_dict_from_file(yaml_file):
+    """
+    util function to convert yaml file to python dictionary
+    params:
+    yaml_file: string
+
+    returns:
+    ret: dictionary
+    """
+    with open(yaml_file, "r") as f:
+        data = yaml.load(f, Loader=yaml.FullLoader)
+
+    return data
+
+
+
+
