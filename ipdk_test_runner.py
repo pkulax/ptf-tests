@@ -24,6 +24,7 @@ import fileinput
 import time
 
 from itertools import dropwhile
+from junit_xml import TestSuite, TestCase
 
 def replaceAll(file,searchExp,replaceExp):
     pat=r"\b"+searchExp
@@ -166,6 +167,7 @@ try:
     test_to_run['sequence'] = sequence
     
     results = {}
+    test_cases = []
     for test in test_to_run['sequence']:
         time.sleep(2)
         process = subprocess.Popen('/bin/bash', stdin=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -184,6 +186,13 @@ try:
         # discarding pre_test.sh logs
         results[test] = '\n'.join([x for x in list(dropwhile(lambda x: "Using packet manipulation module" not in x,
                                                             out.split('\n'))) if x])
+        test_cases.append(TestCase(test, test, 0, results[test], err))
+
+    # writing xml file
+    ts = [TestSuite("ipdk_tests", test_cases)]
+    with open(r'junit-report.xml', mode='a') as fh:
+        TestSuite.to_file(fh, ts, prettyprint=False)
+
     summary = []
     if args.log_file:
         fh = open(args.log_file, "w")
