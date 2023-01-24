@@ -60,7 +60,7 @@ class LNT_ECMP_2VM_VXLAN(BaseTest):
 
         self.config_data = get_config_dict(
             config_json,
-            pci_bdf=test_params["pci_bdf"],
+            pci_bdf=test_params["lnt_pci_bdf"],
             vm_location_list=test_params["vm_location_list"],
             vm_cred=self.vm_cred,
             client_cred=test_params["client_cred"],
@@ -356,16 +356,7 @@ class LNT_ECMP_2VM_VXLAN(BaseTest):
             self.fail(f"Failed to add route")
         log.info("Sleep before sending ping traffic")
         time.sleep(15)
-        log.info(f"Ping test for underlay network")
-        ip_list = []
-        for i in self.config_data["ecmp"]["remote_ports_ip"]:
-            ip_list.append(i.split("/")[0])
-        for ip in ip_list:
-            ping_cmd = f"ping {ip} -c 10"
-            log.info(ping_cmd)
-            if not test_utils.local_ping(ping_cmd):
-                self.result.addFailure(self, sys.exc_info())
-                self.fail(f"FAIL: Ping test failed for underlay network")
+    
         # configure static routes for underlay
         dst = self.config_data["vxlan"]["tep_ip"][1].split("/")[0]
         nexthop_list, device_list, weight_list = [], [], []
@@ -377,6 +368,18 @@ class LNT_ECMP_2VM_VXLAN(BaseTest):
         if not gnmi_ctl_utils.iproute_add(dst, nexthop_list, device_list, weight_list):
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed to add route")
+            
+        log.info(f"Ping test for underlay network")
+        ip_list = []
+        for i in self.config_data["ecmp"]["remote_ports_ip"]:
+            ip_list.append(i.split("/")[0])
+        for ip in ip_list:
+            ping_cmd = f"ping {ip} -c 10"
+            log.info(ping_cmd)
+            if not test_utils.local_ping(ping_cmd):
+                self.result.addFailure(self, sys.exc_info())
+                self.fail(f"FAIL: Ping test failed for underlay network")
+                
         # ping remote tep
         ping_cmd = f"ping {self.config_data['vxlan']['tep_ip'][1].split('/')[0]} -c 10"
         log.info(ping_cmd)
@@ -533,12 +536,7 @@ class LNT_ECMP_2VM_VXLAN(BaseTest):
                     f"Failed to delete VM namesapce {namespace['name']} on {self.config_data['client_hostname']}"
                 )
 
-        # remove local bridge
-        if not ovs_utils.del_bridge_from_ovs(self.config_data["bridge"]):
-            self.result.addFailure(self, sys.exc_info())
-            self.fail(f"Failed to delete bridge {self.config_data['bridge']} from ovs")
-
-        # remote bridge
+        # delete remote bridge
         if not ovs_utils.del_bridge_from_ovs(
             self.config_data["bridge"],
             remote=True,
