@@ -95,7 +95,6 @@ class Port_dump_mix_port(BaseTest):
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed: in id {tdi_in_id_list} and out id {tdi_in_id_list} must be in same order")
         
-        breakpoint()
         log.info(f"Verify that out id {tdi_in_id_list} no duplication")
         if len(tdi_out_id_list) != len(set(tdi_out_id_list)):
             log.info(tdi_out_id_list)

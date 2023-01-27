@@ -368,7 +368,6 @@ class LNT_1HotplugVM_Vxlan_1NsVM(BaseTest):
                 f"Failed to add physical port {self.config_data['remote_port'][0]} to \
                               bridge {self.config_data['bridge']} on {self.config_data['client_hostname']}"
             )
-       
         # --------------------------------- #
         #     Both VM ping each other       #
         # ----------------------------------#
