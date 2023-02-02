@@ -144,6 +144,7 @@ class Dpdk_Link_Flapping(BaseTest):
         portconfig_obj.Ip.iplink_enable_disable_link(
             phy_interface1, status_to_change="down"
         )
+        time.sleep(1)
 
         # Now change Mac address
         log.info("Change Mac of PHY1 interface...")
@@ -151,6 +152,7 @@ class Dpdk_Link_Flapping(BaseTest):
         portconfig_obj.Ip.ip_link_set_mac(
             phy_interface1, self.config_data["vm"][0]["mac_remote"]
         )
+        time.sleep(1)
 
         # Now bring PHY interface up
         log.info("Bring PHY1 interface up...")
@@ -158,6 +160,7 @@ class Dpdk_Link_Flapping(BaseTest):
         portconfig_obj.Ip.iplink_enable_disable_link(
             phy_interface1, status_to_change="up"
         )
+        time.sleep(1)
 
         # Now Give Ip address
         log.info("Give Ip address on  PHY1 interface...")
@@ -165,6 +168,7 @@ class Dpdk_Link_Flapping(BaseTest):
         portconfig_obj.Ip.ipaddr_ipv4_set(
             phy_interface1, self.config_data["port"][1]["ip_address"]
         )
+        time.sleep(1)
 
         # Now bring PHY interface up
         log.info("Bring PHY1 interface up...")
@@ -172,6 +176,7 @@ class Dpdk_Link_Flapping(BaseTest):
         portconfig_obj.Ip.iplink_enable_disable_link(
             phy_interface1, status_to_change="up"
         )
+        time.sleep(1)
 
         # Now Add neighbour entry
         log.info("Add neigh entry on  PHY1 interface...")
@@ -228,7 +233,8 @@ class Dpdk_Link_Flapping(BaseTest):
         portconfig_obj.Ip.iplink_enable_disable_link(
             phy_interface1, status_to_change="up"
         )
-       
+     
+        time.sleep(1)
         # Now Add neighbour entry
         log.info("Add neigh entry on  PHY1 interface...")
         portconfig_obj = port_config.PortConfig()
@@ -239,7 +245,7 @@ class Dpdk_Link_Flapping(BaseTest):
         )
         
         # ping test between VM to link port after up the port
-        time.sleep(5)
+        time.sleep(1)
         log.info("----------------------------------------------------------------")
         log.info("Ping test should work from VM to Link port after up interface...")
         log.info("----------------------------------------------------------------")
