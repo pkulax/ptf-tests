@@ -1410,11 +1410,10 @@ def vtysh_config_frr_router_interface(
 
     return True
 
-
 def restart_frr_service(remote=False, hostname="", username="", password=""):
     """
-    A function to restart frr service by executing "service frr restart"
-    on local or remote host.
+    A function to restart frr service by executing "service stop frr" or "
+    service start frr"on local or remote host.
     Returns: boolean True or False
     """
     if remote:
@@ -1423,17 +1422,66 @@ def restart_frr_service(remote=False, hostname="", username="", password=""):
     else:
         hostname = "local host"
         connection = Local()
-    _, _, err = connection.execute_command("systemctl restart frr")
 
+    cmd = "systemctl restart frr"
+    _, _, err = connection.execute_command(cmd)
+    
     if err:
         log.failed("faild to restart frr service")
         connection.tear_down()
         return False
-    log.passed(f'successfuly execute cmd "systemctl restart frr" on {hostname}')
+    log.passed(f'successfuly execute {cmd} on {hostname}')
 
     connection.tear_down()
 
     return True
+
+def run_frr_service(action, remote=False, hostname="", username="", password=""):
+    """
+    A function to start/stopfrr service by executing "service stop frr" or "
+    service start frr"on local or remote host.
+    Returns: boolean True or False
+    """
+    if remote:
+        connection = Ssh(hostname=hostname, username=username, passwrd=password)
+        connection.setup_ssh_connection()
+    else:
+        hostname = "local host"
+        connection = Local()
+
+    if action == 'start' or action == 'stop':
+        cmd = "systemctl " + action + " frr"
+    else:
+        log.failed(f"{action} is not right action to run frr service")
+        return False
+    _, _, err = connection.execute_command(cmd)
+    
+    if err:
+        log.failed(f"faild to {action} frr service")
+        connection.tear_down()
+        return False
+    log.passed(f'successfuly execute {cmd} on {hostname}')
+
+    connection.tear_down()
+
+    return True
+
+def check_bgp_route(remote=False, hostname="", username="", password=""):
+    """
+    A funtion to check if bgp route is built or not
+    """
+    if remote:
+        connection = Ssh(hostname=hostname, username=username, passwrd=password)
+        connection.setup_ssh_connection()
+    else:
+        hostname = "local host"
+        connection = Local()
+        
+    result, _, _ = connection.execute_command("ip route |grep bgp")
+    if result: 
+        return True
+    
+    return False
 
 
 def send_ctrl_c(conn):

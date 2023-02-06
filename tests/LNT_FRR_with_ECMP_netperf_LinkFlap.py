@@ -78,12 +78,12 @@ class LNT_FRR_with_ECMP_netperf_flap(BaseTest):
         if not gnmi_ctl_utils.gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure gnmi ctl ports")
-        # Verify FRR service
-        log.info(f"verify if frr is intalled and running")
-        if not test_utils.restart_frr_service():
+     
+        # Prepare frr service. "restart" doesn't work well
+        if not test_utils.run_frr_service('stop'):
             self.result.addFailure(self, sys.exc_info())
-            self.fail(f"Failed to restart frr service on local host")
-        if not test_utils.restart_frr_service(
+            self.fail(f"Failed to stop frr service on local host")
+        if not test_utils.run_frr_service('stop',
             remote=True,
             hostname=self.config_data["client_hostname"],
             username=self.config_data["client_username"],
@@ -91,7 +91,22 @@ class LNT_FRR_with_ECMP_netperf_flap(BaseTest):
         ):
             self.result.addFailure(self, sys.exc_info())
             self.fail(
-                f"Failed to restart frr service on {self.config_data['client_hostname']}"
+                f"Failed to stop frr service on {self.config_data['client_hostname']}"
+            )
+        time.sleep(5)
+        log.info(f"Begin to verify if frr is intalled and running")
+        if not test_utils.run_frr_service('start'):
+            self.result.addFailure(self, sys.exc_info())
+            self.fail(f"Failed to start frr service on local host")
+        if not test_utils.run_frr_service('start',
+            remote=True,
+            hostname=self.config_data["client_hostname"],
+            username=self.config_data["client_username"],
+            password=self.config_data["client_password"],
+        ):
+            self.result.addFailure(self, sys.exc_info())
+            self.fail(
+                f"Failed to start frr service on {self.config_data['client_hostname']}"
             )
 
         # Create VMs
@@ -335,7 +350,7 @@ class LNT_FRR_with_ECMP_netperf_flap(BaseTest):
         ):
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed to add {self.config_data['vxlan']['tep_intf']}")
-
+        
         # Configure FRR
         if not test_utils.vtysh_config_frr_router_interface(
             self.config_data["vxlan"]["tep_intf"],
@@ -459,7 +474,38 @@ class LNT_FRR_with_ECMP_netperf_flap(BaseTest):
             ):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"FAIL: failed to start netserver on {namespace['name']}")
-
+                
+        # Check local host bgp route 
+        log.info("Chek if bgp route is built on local host") 
+        m, j = 15,0
+        while j <= m:
+            if not test_utils.check_bgp_route():
+                time.sleep(12)
+                j +=1
+            else:
+                break
+        if j > m:
+            self.result.addFailure(self, sys.exc_info())
+            self.fail(f"FAIL: bgp route is not built on locahost after {j} tries")
+            
+        # Check remote host bgp route
+        log.info(f"Chek if bgp route is built on remote host {self.config_data['client_hostname']}") 
+        m, j = 15,0
+        while j <= m:
+            if not test_utils.check_bgp_route( remote=True,
+                hostname=self.config_data["client_hostname"],
+                username=self.config_data["client_username"],
+                password=self.config_data["client_password"],
+            ):
+                time.sleep(12)
+                j +=1
+            else:
+                break
+            
+        if j > m:
+            self.result.addFailure(self, sys.exc_info())
+            self.fail(f"FAIL: bgp route is not built on remote {self.config_data['client_hostname']} afer {j} tries")
+            
         log.info(f"Ping test to verify underlay network")
         for ip in self.config_data["ecmp"]["remote_ports_ip"]:
             ping_cmd = f"ping {ip.split('/')[0]} -c 10"
@@ -764,11 +810,11 @@ class LNT_FRR_with_ECMP_netperf_flap(BaseTest):
         # Clean up frr configuration
         log.info("Clean up frr configuration")
         # Restart local frr service
-        if not test_utils.restart_frr_service():
+        if not test_utils.run_frr_service('stop'):
             self.result.addFailure(self, sys.exc_info())
-            self.fail(f"Failed to restart frr service on local host")
+            self.fail(f"Failed to stop frr service on local host")
         # Restart remote frr service
-        if not test_utils.restart_frr_service(
+        if not test_utils.run_frr_service('stop',
             remote=True,
             hostname=self.config_data["client_hostname"],
             username=self.config_data["client_username"],
@@ -776,7 +822,7 @@ class LNT_FRR_with_ECMP_netperf_flap(BaseTest):
         ):
             self.result.addFailure(self, sys.exc_info())
             self.fail(
-                f"Failed to restart frr service on {self.config_data['client_hostname']}"
+                f"Failed to stop frr service on {self.config_data['client_hostname']}"
             )
 
         if self.result.wasSuccessful():

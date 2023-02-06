@@ -397,12 +397,7 @@ class LNT_4VM_FUll_MESH(BaseTest):
                     f"Failed to delete VM namesapce {namespace['name']} on {self.config_data['client_hostname']}"
                 )
 
-        # Remove local bridge
-        if not ovs_utils.del_bridge_from_ovs(self.config_data["bridge"]):
-            self.result.addFailure(self, sys.exc_info())
-            self.fail(f"Failed to delete bridge {self.config_data['bridge']} from ovs")
-
-        # Remote remote bridge
+        # Delete remote bridge
         if not ovs_utils.del_bridge_from_ovs(
             self.config_data["bridge"],
             remote=True,

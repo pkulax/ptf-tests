@@ -81,10 +81,10 @@ class LNT_FRR_with_ECMP_modify_BGP_ASN(BaseTest):
 
         # Prepare frr service
         log.info(f"Verify if frr is intalled and running")
-        if not test_utils.restart_frr_service():
+        if not test_utils.run_frr_service('stop'):
             self.result.addFailure(self, sys.exc_info())
-            self.fail(f"FAIL: failed to restart frr service on local host")
-        if not test_utils.restart_frr_service(
+            self.fail(f"Failed to stop frr service on local host")
+        if not test_utils.run_frr_service('stop',
             remote=True,
             hostname=self.config_data["client_hostname"],
             username=self.config_data["client_username"],
@@ -92,7 +92,21 @@ class LNT_FRR_with_ECMP_modify_BGP_ASN(BaseTest):
         ):
             self.result.addFailure(self, sys.exc_info())
             self.fail(
-                f"FAIL: failed to restart frr service on {self.config_data['client_hostname']}"
+                f"Failed to stop frr service on {self.config_data['client_hostname']}"
+            )
+        time.sleep(5)
+        if not test_utils.run_frr_service('start'):
+            self.result.addFailure(self, sys.exc_info())
+            self.fail(f"FAIL: failed to start frr service on local host")
+        if not test_utils.run_frr_service('start',
+            remote=True,
+            hostname=self.config_data["client_hostname"],
+            username=self.config_data["client_username"],
+            password=self.config_data["client_password"],
+        ):
+            self.result.addFailure(self, sys.exc_info())
+            self.fail(
+                f"FAIL: failed to start frr service on {self.config_data['client_hostname']}"
             )
 
         # Create VMs
@@ -391,7 +405,38 @@ class LNT_FRR_with_ECMP_modify_BGP_ASN(BaseTest):
                 self.fail(
                     f"FAIL: Failed to config Bgp on {self.config_data['client_hostname']}"
                 )
-
+                
+        # Check local host bgp route 
+        log.info("Chek if bgp route is built on local host") 
+        m, j = 10,0
+        while j <= m:
+            if not test_utils.check_bgp_route():
+                time.sleep(12)
+                j +=1
+            else:
+                break
+        if j > m:
+            self.result.addFailure(self, sys.exc_info())
+            self.fail(f"FAIL: bgp route is not built on locahost after {j} tries")
+            
+        # Check remote host bgp route
+        log.info(f"Chek if bgp route is built on remote host {self.config_data['client_hostname']}") 
+        m, j = 10,0
+        while j <= m:
+            if not test_utils.check_bgp_route( remote=True,
+                hostname=self.config_data["client_hostname"],
+                username=self.config_data["client_username"],
+                password=self.config_data["client_password"],
+            ):
+                time.sleep(12)
+                j +=1
+            else:
+                break
+            
+        if j > m:
+            self.result.addFailure(self, sys.exc_info())
+            self.fail(f"FAIL: bgp route is not built on remote {self.config_data['client_hostname']} afer {j} tries")
+            
         # Sleep for system ready to send traffic
         log.info("Sleep before sending ping traffic")
         time.sleep(5)
@@ -492,6 +537,38 @@ class LNT_FRR_with_ECMP_modify_BGP_ASN(BaseTest):
                 self.fail(
                     f"Failed to config BGP on {self.config_data['client_hostname']}"
                 )
+                
+        # Check local host bgp route 
+        log.info("Chek if bgp route is built on local host") 
+        m, j = 15,0
+        while j <= m:
+            if not test_utils.check_bgp_route():
+                time.sleep(12)
+                j +=1
+            else:
+                break
+        if j > m:
+            self.result.addFailure(self, sys.exc_info())
+            self.fail(f"FAIL: bgp route is not built on locahost after {j} tries")
+            
+        # Check remote host bgp route
+        log.info(f"Chek if bgp route is built on remote host {self.config_data['client_hostname']}") 
+        m, j = 15,0
+        while j <= m:
+            if not test_utils.check_bgp_route( remote=True,
+                hostname=self.config_data["client_hostname"],
+                username=self.config_data["client_username"],
+                password=self.config_data["client_password"],
+            ):
+                time.sleep(12)
+                j +=1
+            else:
+                break
+            
+        if j > m:
+            self.result.addFailure(self, sys.exc_info())
+            self.fail(f"FAIL: bgp route is not built on remote {self.config_data['client_hostname']} afer {j} tries")
+            
         # Sleep before sending ping traffic
         log.info("Sleep before sending ping traffic")
         time.sleep(5)
@@ -701,12 +778,12 @@ class LNT_FRR_with_ECMP_modify_BGP_ASN(BaseTest):
         # Clean up FRR configuration
         log.info("Clean up frr configuration")
         # Restart local frr service
-        if not test_utils.restart_frr_service():
+        if not test_utils.run_frr_service('stop'):
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed to restart frr service on local host")
 
         # Restart remote frr service
-        if not test_utils.restart_frr_service(
+        if not test_utils.run_frr_service('stop',
             remote=True,
             hostname=self.config_data["client_hostname"],
             username=self.config_data["client_username"],

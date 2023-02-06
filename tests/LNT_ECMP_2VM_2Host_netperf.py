@@ -373,7 +373,7 @@ class LNT_ECMP_2VM_2Host_netperf(BaseTest):
         if not gnmi_ctl_utils.iproute_add(dst, nexthop_list, device_list, weight_list):
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed to add route")
-
+        
         # Prepare netperf
         log.info("prepare netserver on local VM")
         for i in range(len(self.conn_obj_list)):
@@ -457,7 +457,7 @@ class LNT_ECMP_2VM_2Host_netperf(BaseTest):
             ):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"FAIL: failed to start netserver on {namespace['name']}")
-
+        
         # Sleep for system ready to send traffic
         log.info("Sleep before sending netperf traffic")
         time.sleep(10)
@@ -613,7 +613,7 @@ class LNT_ECMP_2VM_2Host_netperf(BaseTest):
                 f"PASS: Minimum {vm_packet} packets expected and {stat_total} received"
             )
         else:
-            log.info(f"FAIL: {vm_packet} packets expected but {stat_total} received")
+            log.failed(f"{vm_packet} packets expected but {stat_total} received")
             self.result.addFailure(self, sys.exc_info())
 
         # Closing telnet session
