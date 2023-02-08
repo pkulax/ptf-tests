@@ -53,6 +53,10 @@ $IPDK_RECIPE/install/sbin/ovs-vswitchd --detach --no-chdir unix:$RUN_OVS/var/run
 echo "set hugepages"
 $IPDK_RECIPE/scripts/dpdk/set_hugepages.sh
 
+rm -rf /usr/share/stratum/dpdk/dpdk_skip_p4.conf
+cp common/p4c_artifacts/pna_tcp_connection_tracking/dpdk_skip_p4.conf /usr/share/stratum/dpdk/ 
+
+
 echo "run infrap4d"
 $IPDK_RECIPE/install/sbin/infrap4d
 

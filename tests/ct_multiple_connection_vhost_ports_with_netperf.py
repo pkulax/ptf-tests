@@ -37,10 +37,11 @@ from scapy.fields import *
 from scapy.all import *
 
 # framework related imports
-import common.utils.ovsp4ctl_utils as ovs_p4ctl
+import common.utils.p4rtctl_utils as p4rt_ctl
+import common.utils.log as log
 import common.utils.test_utils as test_utils
 from common.utils.config_file_utils import get_config_dict, get_gnmi_params_simple, get_interface_ipv4_dict
-from common.utils.gnmi_cli_utils import gnmi_cli_set_and_verify, gnmi_set_params, ip_set_ipv4
+from common.utils.gnmi_ctl_utils import gnmi_ctl_set_and_verify, gnmi_set_params, ip_set_ipv4
 from common.lib.telnet_connection import connectionManager
 
 class Connection_Track(BaseTest):
@@ -54,17 +55,17 @@ class Connection_Track(BaseTest):
         self.dataplane = ptf.dataplane_instance
         ptf.dataplane_instance = ptf.dataplane.DataPlane(config)
         self.config_data = get_config_dict(config_json, vm_location_list=test_params['vm_location_list'])
-        self.gnmicli_params = get_gnmi_params_simple(self.config_data)
+        self.gnmictl_params = get_gnmi_params_simple(self.config_data)
 
 
     def runTest(self):
-        if not test_utils.gen_dep_files_p4c_dpdk_pna_ovs_pipeline_builder(self.config_data):
+        if not test_utils.gen_dep_files_p4c_dpdk_pna_tdi_pipeline_builder(self.config_data):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to generate P4C artifacts or pb.bin")
         
-        if not gnmi_cli_set_and_verify(self.gnmicli_params):
+        if not gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
-            self.fail("Failed to configure gnmi cli ports")
+            self.fail("Failed to configure gnmi ctl ports")
 
 
         # get port list and add to dataplane
@@ -75,24 +76,24 @@ class Connection_Track(BaseTest):
             device, port = port_id
             self.dataplane.port_add(ifname, device, port)
         
-        if not ovs_p4ctl.ovs_p4ctl_set_pipe(self.config_data['switch'], self.config_data['pb_bin'], self.config_data['p4_info']):
+        if not p4rt_ctl.p4rt_ctl_set_pipe(self.config_data['switch'], self.config_data['pb_bin'], self.config_data['p4_info']):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to set pipe")
 
 
         table = self.config_data['table'][0]
-        print(f"Rule Creation : {table['description']}")
-        print(f"Adding {table['description']} rules")
+        log.info(f"Rule Creation : {table['description']}")
+        log.info(f"Adding {table['description']} rules")
         for match_action in table['match_action']:
-            if not ovs_p4ctl.ovs_p4ctl_add_entry(table['switch'],table['name'], match_action):
+            if not p4rt_ctl.p4rt_ctl_add_entry(table['switch'],table['name'], match_action):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to add table entry {match_action}")
 
         table = self.config_data['table'][1]
-        print(f"Rule Creation : {table['description']}")
-        print(f"Adding {table['description']} rules")
+        log.info(f"Rule Creation : {table['description']}")
+        log.info(f"Adding {table['description']} rules")
         for match_action in table['match_action']:
-            if not ovs_p4ctl.ovs_p4ctl_add_entry(table['switch'],table['name'], match_action):
+            if not p4rt_ctl.p4rt_ctl_add_entry(table['switch'],table['name'], match_action):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to add table entry {match_action}")
 
@@ -117,9 +118,9 @@ class Connection_Track(BaseTest):
 
         # configuring VMs
         for i in range(len(self.conn_obj_list)):
-            print (f"Configuring VM{i}....")
+            log.info(f"Configuring VM{i}....")
             test_utils.configure_vm(self.conn_obj_list[i], vm_cmd_list[i])
-            print (f"execute ethtool {self.config_data['port'][i]['interface']} offload on VM{i}")
+            log.info(f"execute ethtool {self.config_data['port'][i]['interface']} offload on VM{i}")
             if not test_utils.vm_ethtool_offload(self.conn_obj_list[i],self.config_data['port'][i]['interface'] ):
                   self.result.addFailure(self, sys.exc_info())
                   self.fail(f"FAIL: failed to set ethtool offload {self.config_data['port'][i]['interface']} on VM{i}")
@@ -133,15 +134,15 @@ class Connection_Track(BaseTest):
         
         for i in range(0,4):
             if i%2 == 0:
-               print (f"Start netserver on VM{i}")
+               log.info(f"Start netserver on VM{i}")
                if not test_utils.vm_start_netserver(self.conn_obj_list[i]):
                    self.result.addFailure(self, sys.exc_info())
                    self.fail(f"FAIL: failed to start netserver on VM{i}")
-               print (f"netserver started on VM{i}")      
+               log.info(f"netserver started on VM{i}")      
         
             #send netperf from local VM
             else :
-                 print(f"Initially execute netperf on VM{i}")
+                 log.info(f"Initially execute netperf on VM{i}")
                  if not test_utils.vm_netperf_client(self.conn_obj_list[i], self.config_data['vm'][i]['remote_ip'], 
                          self.config_data['netperf']['testlen'], self.config_data['netperf']['testname'], option = self.config_data['netperf']['cmd_option']):
                          self.result.addFailure(self, sys.exc_info())
@@ -152,14 +153,14 @@ class Connection_Track(BaseTest):
 
     def tearDown(self):
         for table in self.config_data['table']:
-            print(f"Deleting {table['description']} rules")
+            log.info(f"Deleting {table['description']} rules")
             for del_action in table['del_action']:
-                ovs_p4ctl.ovs_p4ctl_del_entry(table['switch'], table['name'], del_action)
+                p4rt_ctl.p4rt_ctl_del_entry(table['switch'], table['name'], del_action)
 
         if self.result.wasSuccessful():
-            print("Test has PASSED")
+            log.passed("Test has PASSED")
         else:
-            print("Test has FAILED")
+            log.failed("Test has FAILED")
         
 
  
