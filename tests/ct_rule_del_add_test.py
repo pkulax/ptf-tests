@@ -62,10 +62,11 @@ class Connection_Track(BaseTest):
 
 
     def runTest(self):
+        # Generate binary for pipeline
         if not test_utils.gen_dep_files_p4c_dpdk_pna_tdi_pipeline_builder(self.config_data):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to generate P4C artifacts or pb.bin")
-        
+        # Create ports using gnmi ctl
         if not gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure gnmi ctl ports")
@@ -80,11 +81,12 @@ class Connection_Track(BaseTest):
         for port_id, ifname in config["port_map"].items():
             device, port = port_id
             self.dataplane.port_add(ifname, device, port)
-
+        # Set pipe for adding the rules 
         if not p4rt_ctl.p4rt_ctl_set_pipe(self.config_data['switch'], self.config_data['pb_bin'], self.config_data['p4_info']):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to set pipe")
-
+        
+        # Add the rules as per table entries
         table = self.config_data['table'][0]
         log.info(f"Rule Creation : {table['description']}")
         log.info(f"Adding {table['description']} rules")
@@ -103,7 +105,8 @@ class Connection_Track(BaseTest):
         
         # Sleep 5 Sec before tcp connection establishment
         time.sleep(5)
-
+        
+        # send syn packet before Deleting Rules
         log.info("------------------------------------------------------------")   
         log.info("Scenario : Connection should Establish before Deleting Rules")
         log.info("------------------------------------------------------------")
@@ -122,7 +125,8 @@ class Connection_Track(BaseTest):
             log.info(f"Deleting {table['description']} rules")
             for del_action in table['del_action']:
                 p4rt_ctl.p4rt_ctl_del_entry(table['switch'], table['name'], del_action)
-
+        
+        # send syn packet after deleting Rules
         log.info("----------------------------------------------------------------")
         log.info("Scenario : Connection should not Establish after deleting Rules")
         log.info("---------------------------------------------------------------")
@@ -136,7 +140,7 @@ class Connection_Track(BaseTest):
             self.result.addFailure(self, sys.exc_info())
             log.failed(f" Verification of data packet sent failed with exception {err}: A->B")
         
-        # Adding deleted Rules Back 
+        # Adding deleted rules Back 
         table = self.config_data['table'][0]
         log.info(f"Rule Creation : {table['description']}")
         log.info(f"Adding {table['description']} rules")
@@ -154,6 +158,7 @@ class Connection_Track(BaseTest):
                 self.fail(f"Failed to add table entry {match_action}")
 
         # Sleep 5 Sec before tcp connection establishment
+        # send syn packet after adding rules back 
         time.sleep(5)
         log.info("--------------------------------------------------------------")
         log.info("Scenario : Connection should Establish after Adding Rules back")
@@ -172,6 +177,7 @@ class Connection_Track(BaseTest):
 
 
     def tearDown(self):
+        # delete the added rules
         for table in self.config_data['table']:
             log.info(f"Deleting {table['description']} rules")
             for del_action in table['del_action']:

@@ -62,10 +62,11 @@ class Connection_Track(BaseTest):
 
 
     def runTest(self):
+        # Generate binary for pipeline
         if not test_utils.gen_dep_files_p4c_dpdk_pna_tdi_pipeline_builder(self.config_data):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to generate P4C artifacts or pb.bin")
-        
+        # Create ports using gnmi ctl
         if not gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure gnmi ctl ports")
@@ -81,10 +82,12 @@ class Connection_Track(BaseTest):
             device, port = port_id
             self.dataplane.port_add(ifname, device, port)
 
+        # Set pipe for adding the rules  
         if not p4rt_ctl.p4rt_ctl_set_pipe(self.config_data['switch'], self.config_data['pb_bin'], self.config_data['p4_info']):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to set pipe")
-
+        
+        # Add the rules as per table entries
         table = self.config_data['table'][2]
         log.info(f"Rule Creation : {table['description']}")
         log.info(f"Adding {table['description']} rules")
@@ -132,6 +135,7 @@ class Connection_Track(BaseTest):
         log.info("-----------------------------------------------------------------")
         log.info("Scenario : Connection should Establish after Adding correct Rules")
         log.info("-----------------------------------------------------------------")
+        # send syn packet
         log.info("sending SYN packet: A->B")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1])
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
@@ -147,6 +151,7 @@ class Connection_Track(BaseTest):
 
 
     def tearDown(self):
+        # delete the added rules
         for index,table in enumerate (self.config_data['table']):
             if index in range(0,2):
                log.info(f"Deleting {table['description']} rules")

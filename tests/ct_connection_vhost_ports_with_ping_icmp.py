@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-DPDK Connection Tracking with vhost Port for Netperf
+DPDK Connection Tracking with vhost Port for ping test
 """
 
 # in-built module imports
@@ -29,6 +29,7 @@ import ptf
 from ptf.base_tests import BaseTest
 from ptf.testutils import *
 from ptf import config
+
 
 # framework related imports
 import common.utils.p4rtctl_utils as p4rt_ctl
@@ -60,12 +61,12 @@ class Connection_Track(BaseTest):
         if not gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure gnmi ctl ports")
- 
+        
         # Set pipe for adding the rules
         if not p4rt_ctl.p4rt_ctl_set_pipe(self.config_data['switch'], self.config_data['pb_bin'], self.config_data['p4_info']):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to set pipe")
-
+        
         # Add the rules as per table entries
         table = self.config_data['table'][0]
         log.info(f"Rule Creation : {table['description']}")
@@ -111,26 +112,23 @@ class Connection_Track(BaseTest):
                   self.result.addFailure(self, sys.exc_info())
                   self.fail(f"FAIL: failed to set ethtool offload {self.config_data['port'][i]['interface']} on VM{i}")
 
-        # Netperf and netserver for local host
-        time.sleep(30)
-        for i in range(len(self.conn_obj_list)):
-            if not test_utils.vm_check_netperf(self.conn_obj_list[i], f"VM{i}"):
-                self.result.addFailure(self, sys.exc_info())
-                self.fail(f"FAIL: netperf is not install on VM{i}")
-        i=0
-        log.info(f"Start netserver on VM{i}")
-        if not test_utils.vm_start_netserver(self.conn_obj_list[i]):
-              self.result.addFailure(self, sys.exc_info())
-              self.fail(f"FAIL: failed to start netserver on VM{i}")
-        log.info(f"netserver started on VM{i}")      
-        
-        # send netperf from local VM
-        i=1
-        log.info(f"Initially execute netperf on VM{i}")
-        if not test_utils.vm_netperf_client(self.conn_obj_list[i], self.config_data['vm'][i]['remote_ip'],
-                self.config_data['netperf']['testlen'], self.config_data['netperf']['testname'], option = self.config_data['netperf']['cmd_option']):
+        # ping test between VMs
+        log.info("Ping test from VM0 to VM1")
+        result = test_utils.vm_to_vm_ping_test(
+            conn1, self.config_data["vm"][0]["remote_ip"]
+        )
+        if not result:
             self.result.addFailure(self, sys.exc_info())
-            self.fail(f"FAIL: failed to start netperf")
+            log.failed("Ping test failed for VM0")
+
+        log.info("Ping test from VM1 to VM0")
+        result = test_utils.vm_to_vm_ping_test(
+            conn2, self.config_data["vm"][1]["remote_ip"]
+        )
+        if not result:
+            self.result.addFailure(self, sys.exc_info())
+            log.failed("Ping test failed for VM1")
+
 
     def tearDown(self):
         # delete the added rules
@@ -143,7 +141,4 @@ class Connection_Track(BaseTest):
             log.passed("Test has PASSED")
         else:
             log.failed("Test has FAILED")
-        
-
- 
 

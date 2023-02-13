@@ -61,10 +61,12 @@ class Connection_Track(BaseTest):
         self.interface_ip_list = get_interface_ipv4_dict(self.config_data)
 
     def runTest(self):
+        # Generate binary for pipeline
         if not test_utils.gen_dep_files_p4c_dpdk_pna_tdi_pipeline_builder(self.config_data):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to generate P4C artifacts or pb.bin")
         
+        # Create ports using gnmi ctl
         if not gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure gnmi ctl ports")
@@ -80,11 +82,12 @@ class Connection_Track(BaseTest):
             device, port = port_id
             self.dataplane.port_add(ifname, device, port)
         
-      
+        # Set pipe for adding the rules
         if not p4rt_ctl.p4rt_ctl_set_pipe(self.config_data['switch'], self.config_data['pb_bin'], self.config_data['p4_info']):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to set pipe")
-
+        
+        # Add the rules as per table entries
         table = self.config_data['table'][0]
         log.info(f"Rule Creation : {table['description']}")
         log.info(f"Adding {table['description']} rules")
@@ -104,6 +107,7 @@ class Connection_Track(BaseTest):
         # Sleep 5 Sec before tcp connection establishment
         time.sleep(5)
 
+        # Verification of data traffic before connection establishment
         log.info("Verification of data traffic before connection establishment for TAP0 and Link Port")
         log.info("-----------------------------------------------------------------------------------")
         log.info("Sending data packet: A->B")
@@ -112,10 +116,10 @@ class Connection_Track(BaseTest):
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
         try:
             verify_no_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][0]][1]) 
-            log.passed(f"PASS: Verification of data packet check passed : No traffic between A->B")
+            log.passed(f" Verification of data packet check passed : No traffic between A->B")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of data packet sent failed with exception {err}: A->B")
+            log.failed(f" Verification of data packet sent failed with exception {err}: A->B")
 
         log.info("Sending data packet: B->A")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][1] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][0], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_flags="A")
@@ -123,11 +127,12 @@ class Connection_Track(BaseTest):
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][1]], pkt)
         try:
             verify_no_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][1]][1])
-            log.passed(f"PASS: Verification of date packet check passed : No traffic between B->A")
+            log.passed(f" Verification of date packet check passed : No traffic between B->A")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of data packet sent failed with exception {err}: B->A")
+            log.failed(f" Verification of data packet sent failed with exception {err}: B->A")
 
+        # Verification of data traffic before connection establishment for TAP1 and TAP2 Port
         log.info("Verification of data traffic before connection establishment for TAP1 and TAP2 Port")
         log.info("-----------------------------------------------------------------------------------")
         log.info("Sending data packet: A->B")
@@ -137,10 +142,10 @@ class Connection_Track(BaseTest):
         try:
             verify_no_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][2]][1])
 
-            log.passed(f"PASS: Verification of data packet check passed : No traffic between A->B")
+            log.passed(f" Verification of data packet check passed : No traffic between A->B")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of data packet sent failed with exception {err}: A->B")
+            log.failed(f" Verification of data packet sent failed with exception {err}: A->B")
 
         log.info("Sending data packet: B->A")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][3], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][2], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][3] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][2], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][3], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][2], tcp_flags="A")
@@ -148,12 +153,12 @@ class Connection_Track(BaseTest):
         try:
             verify_no_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][3]][1])
 
-            log.passed(f"PASS: Verification of date packet check passed : No traffic between B->A")
+            log.passed(f" Verification of date packet check passed : No traffic between B->A")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of data packet sent failed with exception {err}: B->A")
+            log.failed(f" Verification of data packet sent failed with exception {err}: B->A")
 
-            
+        # send syn packet from Link Port to TAP0 port
         log.info("Scenario : Connection Establishment for SYN TAP0 and Link Port")
         log.info("--------------------------------------------------------------")
         log.info("sending SYN packet: A->B")
@@ -161,11 +166,12 @@ class Connection_Track(BaseTest):
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
         try:
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][0]][1]])              
-            log.passed(f"PASS: Verification of packets passed, Syn packet received")
+            log.passed(f" Verification of packets passed, Syn packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of Syn packet sent failed with exception {err}")
+            log.failed(f" Verification of Syn packet sent failed with exception {err}")
 
+        # send syn packet from TAP1 to TAP2 Port
         log.info("Scenario : Connection Establishment for SYN TAP1 and TAP2 Port")
         log.info("--------------------------------------------------------------")
         log.info("sending SYN packet: A->B")
@@ -173,11 +179,12 @@ class Connection_Track(BaseTest):
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][2]], pkt)
         try:
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][2]][1]])
-            log.passed(f"PASS: Verification of packets passed, Syn packet received")
+            log.passed(f" Verification of packets passed, Syn packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of Syn packet sent failed with exception {err}")
-
+            log.failed(f" Verification of Syn packet sent failed with exception {err}")
+        
+        # send syn+ack packet from Link Port to TAP0 port
         log.info("Scenario : Connection Establishment for SYN+ACK TAP0 and Link Port")
         log.info("--------------------------------------------------------------")
         log.info("Sending SYN+ACK packet: B->A")
@@ -187,22 +194,24 @@ class Connection_Track(BaseTest):
         try:
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][1]][1]]) 
         
-            log.passed(f"PASS: Verification of packets passed, SynAck packet received")
+            log.passed(f" Verification of packets passed, SynAck packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of SynAck packet sent failed with exception {err}")
+            log.failed(f" Verification of SynAck packet sent failed with exception {err}")
 
+        # send ack packet from Link port to TAP0 Port
         log.info("Sending ACK packet: A->B")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="A")
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
         try:
 
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][0]][1]])  
-            log.passed(f"PASS: Verification of packets passed, ACK packet received")
+            log.passed(f" Verification of packets passed, ACK packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of ACK packets sent failed with exception {err}")
-     
+            log.failed(f" Verification of ACK packets sent failed with exception {err}")
+        
+        # send syn+ack packet from TAP1 to TAP2 Port
         log.info("Scenario : Connection Establishment for SYN+ACK TAP1 and TAP2 Port")
         log.info("------------------------------------------------------------------")
         log.info("Sending SYN+ACK packet: B->A")
@@ -211,11 +220,12 @@ class Connection_Track(BaseTest):
         try:
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][3]][1]])
 
-            log.passed(f"PASS: Verification of packets passed, SynAck packet received")
+            log.passed(f" Verification of packets passed, SynAck packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of SynAck packet sent failed with exception {err}")
+            log.failed(f" Verification of SynAck packet sent failed with exception {err}")
 
+        # send ack packet from TAP1 to TAP2 Port
         log.info("Sending ACK packet: A->B")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][2], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][3], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][2] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][3], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][2], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][3], tcp_flags="A")
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][2]], pkt)
@@ -223,11 +233,12 @@ class Connection_Track(BaseTest):
 
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][2]][1]])
 
-            log.passed(f"PASS: Verification of packets passed, ACK packet received")
+            log.passed(f" Verification of packets passed, ACK packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of ACK packets sent failed with exception {err}") 
-
+            log.failed(f" Verification of ACK packets sent failed with exception {err}") 
+        
+        # Verification of data traffic after connection establishment for TAP0 and Link Port
         log.info("Connection establishment steps completed")
         log.info("Verification of data traffic after connection establishment for TAP0 and Link Port")
         log.info("----------------------------------------------------------------------------------")
@@ -237,10 +248,10 @@ class Connection_Track(BaseTest):
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
         try:
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][0]][1]])  
-            log.passed(f"PASS: Verification of data packet passed : A->B")
+            log.passed(f" Verification of data packet passed : A->B")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of data packet sent failed with exception {err}: A->B")
+            log.failed(f" Verification of data packet sent failed with exception {err}: A->B")
 
         log.info("Sending data packet: B->A")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][1] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][0], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_flags="A")
@@ -249,11 +260,12 @@ class Connection_Track(BaseTest):
         try:
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][1]][1]])
 
-            log.passed(f"PASS: Verification of date packet passed: B->A")
+            log.passed(f" Verification of date packet passed: B->A")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of data packet sent failed with exception {err}: B->A")
-
+            log.failed(f" Verification of data packet sent failed with exception {err}: B->A")
+        
+        # Verification of data traffic after connection establishment for TAP1 and TAP2 Port
         log.info("Verification of data traffic after connection establishment for TAP1 and TAP2 Port")
         log.info("----------------------------------------------------------------------------------")
         log.info("Sending data packet: A->B")
@@ -262,10 +274,10 @@ class Connection_Track(BaseTest):
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][2]], pkt)
         try:
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][2]][1]])
-            log.passed(f"PASS: Verification of data packet passed : A->B")
+            log.passed(f" Verification of data packet passed : A->B")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of data packet sent failed with exception {err}: A->B")
+            log.failed(f" Verification of data packet sent failed with exception {err}: A->B")
 
         log.info("Sending data packet: B->A")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][3], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][2], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][3] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][2], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][3], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][2], tcp_flags="A")
@@ -274,11 +286,12 @@ class Connection_Track(BaseTest):
         try:
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][3]][1]])
 
-            log.passed(f"PASS: Verification of date packet passed: B->A")
+            log.passed(f" Verification of date packet passed: B->A")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of data packet sent failed with exception {err}: B->A")
-
+            log.failed(f" Verification of data packet sent failed with exception {err}: B->A")
+        
+        # send fin packet A->B from Link to TAP0 port
         log.info("Connection Termination")
         log.info("Scenario : Connection Establishment for FIN TAP0 and Link Port")
         log.info("--------------------------------------------------------------")
@@ -287,11 +300,12 @@ class Connection_Track(BaseTest):
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
         try:
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][0]][1]])  
-            log.passed(f"PASS: Verification of packets passed, FIN packet received")
+            log.passed(f" Verification of packets passed, FIN packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of FIN packet sent failed with exception {err}")
+            log.failed(f" Verification of FIN packet sent failed with exception {err}")
         
+        # send fin packet A->B from TAP1 to TAP2 port
         log.info("Scenario : Connection Establishment for FIN TAP1 and TAP2 Port")
         log.info("--------------------------------------------------------------")
         log.info("Sending FIN packet: A->B")
@@ -299,11 +313,12 @@ class Connection_Track(BaseTest):
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][2]], pkt)
         try:
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][2]][1]])
-            log.passed(f"PASS: Verification of packets passed, FIN packet received")
+            log.passed(f" Verification of packets passed, FIN packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of FIN packet sent failed with exception {err}")
-
+            log.failed(f" Verification of FIN packet sent failed with exception {err}")
+        
+        # send fin+ack packet B->A from Link to TAP0 port
         log.info("Scenario : Connection Establishment for FIN+ACK TAP0 and Link Port")
         log.info("------------------------------------------------------------------")
         log.info("Sending ACK packet: B->A")
@@ -313,11 +328,12 @@ class Connection_Track(BaseTest):
         try:
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][1]][1]])
 
-            log.passed(f"PASS: Verification of packets passed, ACK packet received")
+            log.passed(f" Verification of packets passed, ACK packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of FIN+ACK packet sent failed with exception {err}")
-
+            log.failed(f" Verification of FIN+ACK packet sent failed with exception {err}")
+        
+        # send fin packet B->A from TAP0 port to Link port
         log.info("Sending FIN packet: B->A")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][1] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][0], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_flags="F")
 
@@ -325,11 +341,12 @@ class Connection_Track(BaseTest):
         try:
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][1]][1]])
 
-            log.passed(f"PASS: Verification of packets passed, FIN packet received")
+            log.passed(f" Verification of packets passed, FIN packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of FIN packet sent failed with exception {err}")
-
+            log.failed(f" Verification of FIN packet sent failed with exception {err}")
+         
+        # send fin+ack packet A->B from Link to TAP0 port
         log.info("Sending ACK packet: A->B")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="A")
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
@@ -337,11 +354,12 @@ class Connection_Track(BaseTest):
 
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][0]][1]])
 
-            log.passed(f"PASS: Verification of packets passed, ACK packet received")
+            log.passed(f" Verification of packets passed, ACK packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of ACK packets sent failed with exception {err}")
-
+            log.failed(f" Verification of ACK packets sent failed with exception {err}")
+        
+        # send fin+ack packet B->A TAP1 and TAP2 Port
         log.info("Scenario : Connection Establishment for FIN+ACK TAP1 and TAP2 Port")
         log.info("------------------------------------------------------------------")
         log.info("Sending ACK packet: B->A")
@@ -351,11 +369,12 @@ class Connection_Track(BaseTest):
         try:
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][3]][1]])
 
-            log.passed(f"PASS: Verification of packets passed, ACK packet received")
+            log.passed(f" Verification of packets passed, ACK packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of FIN+ACK packet sent failed with exception {err}")
- 
+            log.failed(f" Verification of FIN+ACK packet sent failed with exception {err}")
+        
+        # send fin packet B->A TAP1 and TAP2 Port
         log.info("Sending FIN packet: B->A")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][3], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][2], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][3] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][2], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][3], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][2], tcp_flags="F")
 
@@ -363,11 +382,12 @@ class Connection_Track(BaseTest):
         try:
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][3]][1]])
 
-            log.passed(f"PASS: Verification of packets passed, FIN packet received")
+            log.passed(f" Verification of packets passed, FIN packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of FIN packet sent failed with exception {err}")
+            log.failed(f" Verification of FIN packet sent failed with exception {err}")
 
+        # send fin+ack packet A->B TAP1 and TAP2 Port
         log.info("Sending ACK packet: A->B")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][2], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][3], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][2] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][3], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][2], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][3], tcp_flags="A")
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][2]], pkt)
@@ -375,12 +395,63 @@ class Connection_Track(BaseTest):
 
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][2]][1]])
 
-            log.passed(f"PASS: Verification of packets passed, ACK packet received")
+            log.passed(f" Verification of packets passed, ACK packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of ACK packets sent failed with exception {err}")
+            log.failed(f" Verification of ACK packets sent failed with exception {err}")
 
-        
+        # Verification of data traffic after connection closing
+        log.info("Verification of data traffic after connection closing for TAP0 and Link Port")
+        log.info("----------------------------------------------------------------------------")
+        log.info("Sending data packet: A->B")
+
+        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="A")
+        send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
+        try:
+            verify_no_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][0]][1])
+            log.passed(f" Verification of data packet check passed : No traffic between A->B")
+        except Exception as err:
+            self.result.addFailure(self, sys.exc_info())
+            log.failed(f" Verification of data packet sent failed with exception {err}: A->B")
+
+        log.info("Sending data packet: B->A")
+        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][1] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][0], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_flags="A")
+
+        send_packet(self, port_ids[self.config_data['traffic']['send_port'][1]], pkt)
+        try:
+            verify_no_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][1]][1])
+            log.passed(f" Verification of date packet check passed : No traffic between B->A")
+        except Exception as err:
+            self.result.addFailure(self, sys.exc_info())
+            log.failed(f" Verification of data packet sent failed with exception {err}: B->A")
+
+
+        log.info("Verification of data traffic after connection closing for TAP1 and TAP2 Port")
+        log.info("----------------------------------------------------------------------------")
+        log.info("Sending data packet: A->B")
+
+        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][2], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][3], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][2] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][3], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][2], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][3], tcp_flags="A")
+        send_packet(self, port_ids[self.config_data['traffic']['send_port'][2]], pkt)
+        try:
+            verify_no_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][2]][1])
+
+            log.passed(f" Verification of data packet check passed : No traffic between A->B")
+        except Exception as err:
+            self.result.addFailure(self, sys.exc_info())
+            log.failed(f" Verification of data packet sent failed with exception {err}: A->B")
+
+        log.info("Sending data packet: B->A")
+        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][3], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][2], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][3] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][2], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][3], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][2], tcp_flags="A")
+        send_packet(self, port_ids[self.config_data['traffic']['send_port'][3]], pkt)
+        try:
+            verify_no_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][3]][1])
+
+            log.passed(f" Verification of date packet check passed : No traffic between B->A")
+        except Exception as err:
+            self.result.addFailure(self, sys.exc_info())
+            log.failed(f" Verification of data packet sent failed with exception {err}: B->A")
+
+        # send rst packet TAP0 and Link Port
         log.info("Connection Reset")
         log.info("Scenario : Connection Establishment for RST TAP0 and Link Port")
         log.info("--------------------------------------------------------------")
@@ -389,11 +460,12 @@ class Connection_Track(BaseTest):
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
         try:
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][0]][1]])
-            log.passed(f"PASS: Verification of packets passed, RST packet received")
+            log.passed(f" Verification of packets passed, RST packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of RST packet sent failed with exception {err}")
-
+            log.failed(f" Verification of RST packet sent failed with exception {err}")
+        
+        # send rst packet TAP1 and TAP2 Port
         log.info("Scenario : Connection Establishment for RST TAP1 and TAP2 Port")
         log.info("--------------------------------------------------------------")
         log.info("Sending RST packet: A->B")
@@ -401,15 +473,68 @@ class Connection_Track(BaseTest):
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][2]], pkt)
         try:
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][2]][1]])
-            log.passed(f"PASS: Verification of packets passed, RST packet received")
+            log.passed(f" Verification of packets passed, RST packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"FAIL: Verification of RST packet sent failed with exception {err}")
+            log.failed(f" Verification of RST packet sent failed with exception {err}")
+
+        # Verification of data traffic after connection closing
+        log.info("Verification of data traffic after connection closing for TAP0 and Link Port")
+        log.info("----------------------------------------------------------------------------")
+        log.info("Sending data packet: A->B")
+
+        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="A")
+        send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
+        try:
+            verify_no_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][0]][1])
+            log.passed(f" Verification of data packet check passed : No traffic between A->B")
+        except Exception as err:
+            self.result.addFailure(self, sys.exc_info())
+            log.failed(f" Verification of data packet sent failed with exception {err}: A->B")
+
+        log.info("Sending data packet: B->A")
+        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][1] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][0], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_flags="A")
+
+        send_packet(self, port_ids[self.config_data['traffic']['send_port'][1]], pkt)
+        try:
+            verify_no_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][1]][1])
+            log.passed(f" Verification of date packet check passed : No traffic between B->A")
+        except Exception as err:
+            self.result.addFailure(self, sys.exc_info())
+            log.failed(f" Verification of data packet sent failed with exception {err}: B->A")
+
+
+        log.info("Verification of data traffic after connection closing for TAP1 and TAP2 Port")
+        log.info("----------------------------------------------------------------------------")
+        log.info("Sending data packet: A->B")
+
+        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][2], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][3], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][2] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][3], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][2], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][3], tcp_flags="A")
+        send_packet(self, port_ids[self.config_data['traffic']['send_port'][2]], pkt)
+        try:
+            verify_no_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][2]][1])
+
+            log.passed(f" Verification of data packet check passed : No traffic between A->B")
+        except Exception as err:
+            self.result.addFailure(self, sys.exc_info())
+            log.failed(f" Verification of data packet sent failed with exception {err}: A->B")
+
+        log.info("Sending data packet: B->A")
+        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][3], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][2], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][3] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][2], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][3], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][2], tcp_flags="A")
+        send_packet(self, port_ids[self.config_data['traffic']['send_port'][3]], pkt)
+        try:
+            verify_no_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][3]][1])
+
+            log.passed(f" Verification of date packet check passed : No traffic between B->A")
+        except Exception as err:
+            self.result.addFailure(self, sys.exc_info())
+            log.failed(f" Verification of data packet sent failed with exception {err}: B->A")
+
 
         self.dataplane.kill()
 
 
     def tearDown(self):
+        # delete the added rules
         for table in self.config_data['table']:
             log.info(f"Deleting {table['description']} rules")
             for del_action in table['del_action']:

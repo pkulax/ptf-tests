@@ -26,15 +26,9 @@ import unittest
 
 # ptf related imports
 import ptf
-import ptf.dataplane as dataplane
 from ptf.base_tests import BaseTest
 from ptf.testutils import *
 from ptf import config
-
-# scapy related imports
-from scapy.packet import *
-from scapy.fields import *
-from scapy.all import *
 
 # framework related imports
 import common.utils.p4rtctl_utils as p4rt_ctl
@@ -52,35 +46,26 @@ class Connection_Track(BaseTest):
         config["relax"] = True # for verify_packets to ignore other packets received at the interface
         test_params = test_params_get()
         config_json = test_params['config_json']
-        self.dataplane = ptf.dataplane_instance
-        ptf.dataplane_instance = ptf.dataplane.DataPlane(config)
         self.config_data = get_config_dict(config_json, vm_location_list=test_params['vm_location_list'])
         self.gnmictl_params = get_gnmi_params_simple(self.config_data)
 
 
     def runTest(self):
+        # Generate binary for pipeline
         if not test_utils.gen_dep_files_p4c_dpdk_pna_tdi_pipeline_builder(self.config_data):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to generate P4C artifacts or pb.bin")
-        
+        # Create ports using gnmi ctl
         if not gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure gnmi ctl ports")
-
-
-        # get port list and add to dataplane
-        port_list = self.config_data['port_list']
-        port_ids = test_utils.add_port_to_dataplane(port_list)
         
-        for port_id, ifname in config["port_map"].items():
-            device, port = port_id
-            self.dataplane.port_add(ifname, device, port)
-        
+        # Set pipe for adding the rules
         if not p4rt_ctl.p4rt_ctl_set_pipe(self.config_data['switch'], self.config_data['pb_bin'], self.config_data['p4_info']):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to set pipe")
-
-
+            
+        # Add the rules as per table entries
         table = self.config_data['table'][0]
         log.info(f"Rule Creation : {table['description']}")
         log.info(f"Adding {table['description']} rules")
@@ -148,10 +133,9 @@ class Connection_Track(BaseTest):
                          self.result.addFailure(self, sys.exc_info())
                          self.fail(f"FAIL: failed to start netperf")
 
-        self.dataplane.kill()
-
 
     def tearDown(self):
+        # delete the added rules
         for table in self.config_data['table']:
             log.info(f"Deleting {table['description']} rules")
             for del_action in table['del_action']:
@@ -162,6 +146,3 @@ class Connection_Track(BaseTest):
         else:
             log.failed("Test has FAILED")
         
-
- 
-

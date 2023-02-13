@@ -60,13 +60,21 @@ class Connection_Track(BaseTest):
         if not gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure gnmi ctl ports")
- 
+
         # Set pipe for adding the rules
         if not p4rt_ctl.p4rt_ctl_set_pipe(self.config_data['switch'], self.config_data['pb_bin'], self.config_data['p4_info']):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to set pipe")
 
-        # Add the rules as per table entries
+        # Add the rules as per table entries    
+        table = self.config_data['table'][2]
+        log.info(f"Rule Creation : {table['description']}")
+        log.info(f"Adding {table['description']} rules")
+        for match_action in table['match_action']:
+            if not p4rt_ctl.p4rt_ctl_add_entry(table['switch'],table['name'], match_action):
+                self.result.addFailure(self, sys.exc_info())
+                self.fail(f"Failed to add table entry {match_action}")
+
         table = self.config_data['table'][0]
         log.info(f"Rule Creation : {table['description']}")
         log.info(f"Adding {table['description']} rules")
@@ -74,6 +82,7 @@ class Connection_Track(BaseTest):
             if not p4rt_ctl.p4rt_ctl_add_entry(table['switch'],table['name'], match_action):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to add table entry {match_action}")
+
 
         table = self.config_data['table'][1]
         log.info(f"Rule Creation : {table['description']}")
@@ -124,7 +133,7 @@ class Connection_Track(BaseTest):
               self.fail(f"FAIL: failed to start netserver on VM{i}")
         log.info(f"netserver started on VM{i}")      
         
-        # send netperf from local VM
+        #send netperf from local VM
         i=1
         log.info(f"Initially execute netperf on VM{i}")
         if not test_utils.vm_netperf_client(self.conn_obj_list[i], self.config_data['vm'][i]['remote_ip'],

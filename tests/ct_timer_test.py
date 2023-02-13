@@ -62,10 +62,11 @@ class Connection_Track(BaseTest):
 
 
     def runTest(self):
+        # Generate binary for pipeline
         if not test_utils.gen_dep_files_p4c_dpdk_pna_tdi_pipeline_builder(self.config_data):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to generate P4C artifacts or pb.bin")
-        
+        # Create ports using gnmi ctl
         if not gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure gnmi ctl ports")
@@ -81,11 +82,12 @@ class Connection_Track(BaseTest):
             device, port = port_id
             self.dataplane.port_add(ifname, device, port)
         
-        
+        # Set pipe for adding the rules
         if not p4rt_ctl.p4rt_ctl_set_pipe(self.config_data['switch'], self.config_data['pb_bin'], self.config_data['p4_info']):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to set pipe")
 
+        # Add the rules as per table entries
         table = self.config_data['table'][0]
         log.info(f"Rule Creation : {table['description']}")
         log.info(f"Adding {table['description']} rules")
@@ -102,21 +104,24 @@ class Connection_Track(BaseTest):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to add table entry {match_action}")
         
+        # Verification of timer or time out for data traffic
         log.info("---------------------------------------")
         log.info("Scenario-1: 3 min timer for data packet")
         log.info("---------------------------------------")
-        
         time.sleep(5)
+        
+        # send syn packet
         log.info("sending SYN packet: A->B")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1])
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
         try:
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][0]][1]])              
-            log.passed(f"Verification of packets passed, Syn packet received")
+            log.passed(f" Verification of packets passed, Syn packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
             log.failed(f" Verification of Syn packet sent failed with exception {err}")
 
+        # send syn+ack packet
         log.info("Sending SYN+ACK packet: B->A")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][1] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][0], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_flags="SA")
         
@@ -124,11 +129,12 @@ class Connection_Track(BaseTest):
         try:
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][1]][1]]) 
         
-            log.passed(f"Verification of packets passed, SynAck packet received")
+            log.passed(f" Verification of packets passed, SynAck packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"Verification of SynAck packet sent failed with exception {err}")
+            log.failed(f" Verification of SynAck packet sent failed with exception {err}")
 
+        # send ack packet  
         log.info("Sending ACK packet: A->B")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="A")
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
@@ -136,11 +142,12 @@ class Connection_Track(BaseTest):
 
             verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][0]][1]])  
 
-            log.passed(f"Verification of packets passed, ACK packet received")
+            log.passed(f" Verification of packets passed, ACK packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"Verification of ACK packets sent failed with exception {err}")
+            log.failed(f" Verification of ACK packets sent failed with exception {err}")
  
+        # Verification of data traffic after connection establishment
         log.info("Connection establishment steps completed")
         log.info("Verification of data traffic after connection establishment")
         log.info("Sending data packet: A->B")
@@ -170,6 +177,7 @@ class Connection_Track(BaseTest):
         # Put Timer for 3 min after verify data traffic and check again
         time.sleep(180)
 
+        # Verification of data traffic after 3 min Timer connection should not be establish
         log.info("Verification of data traffic after 3 min Timer connection should not be establish")
         log.info("Sending data packet: A->B")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="A")
@@ -179,7 +187,7 @@ class Connection_Track(BaseTest):
             log.passed(f" Verification of data packet check passed : No traffic between A->B")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"Verification of data packet sent failed with exception {err}: A->B")
+            log.failed(f" Verification of data packet sent failed with exception {err}: A->B")
 
         log.info("Sending data packet: B->A")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][1] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][0], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_flags="A")
@@ -191,11 +199,12 @@ class Connection_Track(BaseTest):
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
             log.failed(f" Verification of data packet sent failed with exception {err}: B->A")
-
+        
+        # Verification of timer or time out for ack packet 
         log.info("-------------------------------")
         log.info("Scenario-2: 2 min timer for ACK")
         log.info("-------------------------------")
-
+        # send syn packet
         log.info("sending SYN packet: A->B")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1])
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
@@ -206,6 +215,7 @@ class Connection_Track(BaseTest):
             self.result.addFailure(self, sys.exc_info())
             log.failed(f" Verification of Syn packet sent failed with exception {err}")
 
+        # send syn+ack packet
         log.info("Sending SYN+ACK packet: B->A")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][1] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][0], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_flags="SA")
 
@@ -220,22 +230,24 @@ class Connection_Track(BaseTest):
 
         # Put Timer for 2 min for ACK packet 
         time.sleep(120)
-
+        # Verification of ACK after 2 min Timer connection should not be establish
         log.info("Verification of ACK after 2 min Timer connection should not be establish")
         log.info("Sending ACK packet: A->B")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="A")
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
         try:
             verify_no_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][1]][1])
-            log.passed(f"Verification of ACK packet check passed : No ACK packet send between B->A")
+            log.passed(f" Verification of ACK packet check passed : No ACK packet send between B->A")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"Verification of ACK sent failed with exception {err}: B->A")
+            log.failed(f" Verification of ACK sent failed with exception {err}: B->A")
+        
 
+        # Verification of timer or time out for fin packet
         log.info("-------------------------------")
         log.info("Scenario-3: 1 min timer for FIN")
         log.info("-------------------------------")
-
+        # send syn packet
         log.info("sending SYN packet: A->B")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1])
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
@@ -245,7 +257,7 @@ class Connection_Track(BaseTest):
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
             log.failed(f" Verification of Syn packet sent failed with exception {err}")
-
+        # send syn+ack packet
         log.info("Sending SYN+ACK packet: B->A")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][1] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][0], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_flags="SA")
 
@@ -256,7 +268,7 @@ class Connection_Track(BaseTest):
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
             log.failed(f" Verification of SynAck packet sent failed with exception {err}")
-
+        # send ack packet
         log.info("Sending ACK packet: A->B")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="A")
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
@@ -268,7 +280,7 @@ class Connection_Track(BaseTest):
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
             log.failed(f"Verification of ACK packets sent failed with exception {err}")
-
+        # send fin packet
         log.info("Connection Termination")
         log.info("Sending FIN packet: A->B")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="F")
@@ -282,7 +294,7 @@ class Connection_Track(BaseTest):
         
         # Put Timer for 1 min for FIN packet
         time.sleep(60)
-
+        # Verification of FIN after 1 min Timer connection should not be establish
         log.info("Verification of FIN after 1 min Timer connection should not be establish")
         log.info("Sending FIN packet: A->B")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="F")
@@ -294,9 +306,11 @@ class Connection_Track(BaseTest):
             self.result.addFailure(self, sys.exc_info())
             log.failed(f" Verification of data packet sent failed with exception {err}: A->B")
 
+        # Verification of timer or time out for rst packet
         log.info("-------------------------------")
         log.info("Scenario-4: 1 min timer for RST")
         log.info("-------------------------------")
+        # send syn packet
         log.info("sending SYN packet: A->B")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1])
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
@@ -306,7 +320,7 @@ class Connection_Track(BaseTest):
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
             log.failed(f"Verification of Syn packet sent failed with exception {err}")
-
+        # send syn+ack packet
         log.info("Sending SYN+ACK packet: B->A")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][1] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][0], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_flags="SA")
 
@@ -318,7 +332,7 @@ class Connection_Track(BaseTest):
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
             log.failed(f"Verification of SynAck packet sent failed with exception {err}")
-
+        # send ack packet
         log.info("Sending ACK packet: A->B")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="A")
         send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
@@ -329,7 +343,7 @@ class Connection_Track(BaseTest):
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
             log.failed(f" Verification of ACK packets sent failed with exception {err}")
-
+        # send rst packet
         log.info("Connection Reset")
         log.info("Sending RST packet: A->B")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="R")
@@ -343,6 +357,7 @@ class Connection_Track(BaseTest):
 
         # Put Timer for 1 min for RST packet
         time.sleep(60)
+        # Verification of RST after 1 min Timer connection should not be establish
         log.info("Verification of RST after 1 min Timer connection should not be establish")
         log.info("Sending RST packet: A->B")
         pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="R")
@@ -352,13 +367,14 @@ class Connection_Track(BaseTest):
             log.passed(f" Verification of RST check passed : No RST packet send between A->B")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f"Verification of data packet sent failed with exception {err}: A->B")
+            log.failed(f" Verification of data packet sent failed with exception {err}: A->B")
 
 
         self.dataplane.kill()
 
 
     def tearDown(self):
+        # delete the added rules
         for table in self.config_data['table']:
             log.info(f"Deleting {table['description']} rules")
             for del_action in table['del_action']:
