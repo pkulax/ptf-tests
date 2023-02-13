@@ -108,7 +108,6 @@ def p4rt_ctl_add_member_and_verify(bridge, tbl_name, member_details):
       p4rt_ctl_add_member_and_verify('br0', 'ingress.as_sl3', 'action=ingress.send(2),member_id=1')
 
     """
-
     action, action_data, mem_id = p4rt_ctl.parse_profile_mem(member_details)
     try:
         out = p4rt_ctl.p4ctl_add_member(bridge, tbl_name, member_details)
@@ -387,3 +386,24 @@ def p4rt_ctl_reset_counter_entry(bridge, cnt_tbl_name, flow):
            ipv4_host_tbl_flow_counter_packets counter_id=303591076,index=1
     """
     p4rt_ctl.p4ctl_reset_counter_entry(bridge, cnt_tbl_name, flow)
+
+def p4rt_ctl_dump_entities(bridge):
+    """
+    A function to capture result of commd "p4rt-ctl dump-entries SWITCH"
+    :return a list or false
+    """
+    try:
+        # The called function doesn't return value but print out the value.
+        # Thus using IO steam to capture the print out and parse it to
+        # build counter data
+        save_stdout = sys.stdout
+        output = StringIO()
+        sys.stdout = output
+        p4rt_ctl.p4ctl_dump_entries(bridge)
+        sys.stdout = save_stdout
+        result = output.getvalue().split("\n")
+   
+        return result
+    except Exception as error:
+        log.failed(f"p4rt-ctl dump entities Failed with error: {error}")
+        return False
