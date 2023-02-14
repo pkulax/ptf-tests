@@ -37,336 +37,639 @@ from scapy.fields import *
 from scapy.all import *
 
 # framework related imports
-import common.utils.ovsp4ctl_utils as ovs_p4ctl
+import common.utils.p4rtctl_utils as p4rt_ctl
+import common.utils.log as log
 import common.utils.test_utils as test_utils
-from common.utils.config_file_utils import get_config_dict, get_gnmi_params_simple, get_interface_ipv4_dict
-from common.utils.gnmi_cli_utils import gnmi_cli_set_and_verify, gnmi_set_params, ip_set_ipv4
+from common.utils.config_file_utils import (
+    get_config_dict,
+    get_gnmi_params_simple,
+    get_interface_ipv4_dict,
+)
+from common.utils.gnmi_ctl_utils import (
+    gnmi_ctl_set_and_verify,
+    gnmi_set_params,
+    ip_set_ipv4,
+)
 
 
 class Connection_Track(BaseTest):
-
     def setUp(self):
         BaseTest.setUp(self)
         self.result = unittest.TestResult()
-        config["relax"] = True # for verify_packets to ignore other packets received at the interface
-        
+        config[
+            "relax"
+        ] = True  # for verify_packets to ignore other packets received at the interface
+
         test_params = test_params_get()
-        config_json = test_params['config_json']
+        config_json = test_params["config_json"]
         self.dataplane = ptf.dataplane_instance
         ptf.dataplane_instance = ptf.dataplane.DataPlane(config)
-        self.capture_port = test_params['pci_bdf'][:-1] + "1"
-        self.config_data = get_config_dict(config_json, test_params['pci_bdf'])
-        self.gnmicli_params = get_gnmi_params_simple(self.config_data)
+        self.capture_port = test_params["pci_bdf"][:-1] + "1"
+        self.config_data = get_config_dict(config_json, test_params["pci_bdf"])
+        self.gnmictl_params = get_gnmi_params_simple(self.config_data)
         self.interface_ip_list = get_interface_ipv4_dict(self.config_data)
 
-
     def runTest(self):
-        if not test_utils.gen_dep_files_p4c_dpdk_pna_ovs_pipeline_builder_ct_timer(self.config_data):
+        # Generate binary for pipeline
+        if not test_utils.gen_dep_files_p4c_dpdk_pna_tdi_pipeline_builder(
+            self.config_data
+        ):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to generate P4C artifacts or pb.bin")
-        
-        if not gnmi_cli_set_and_verify(self.gnmicli_params):
+        # Create ports using gnmi ctl
+        if not gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
-            self.fail("Failed to configure gnmi cli ports")
+            self.fail("Failed to configure gnmi ctl ports")
 
         ip_set_ipv4(self.interface_ip_list)
 
         # get port list and add to dataplane
-        port_list = self.config_data['port_list']
+        port_list = self.config_data["port_list"]
         port_list[0] = test_utils.get_port_name_from_pci_bdf(self.capture_port)
         port_ids = test_utils.add_port_to_dataplane(port_list)
-        
+
         for port_id, ifname in config["port_map"].items():
             device, port = port_id
             self.dataplane.port_add(ifname, device, port)
 
-        if not ovs_p4ctl.ovs_p4ctl_set_pipe(self.config_data['switch'], self.config_data['pb_bin'], self.config_data['p4_info']):
+        # Set pipe for adding the rules
+        if not p4rt_ctl.p4rt_ctl_set_pipe(
+            self.config_data["switch"],
+            self.config_data["pb_bin"],
+            self.config_data["p4_info"],
+        ):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to set pipe")
 
-        table = self.config_data['table'][0]
-        print(f"Rule Creation : {table['description']}")
-        print(f"Adding {table['description']} rules")
-        for match_action in table['match_action']:
-            if not ovs_p4ctl.ovs_p4ctl_add_entry(table['switch'],table['name'], match_action):
+        # Add the rules as per table entries
+        table = self.config_data["table"][0]
+        log.info(f"Rule Creation : {table['description']}")
+        log.info(f"Adding {table['description']} rules")
+        for match_action in table["match_action"]:
+            if not p4rt_ctl.p4rt_ctl_add_entry(
+                table["switch"], table["name"], match_action
+            ):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to add table entry {match_action}")
- 
-        table = self.config_data['table'][1]
-        print(f"Rule Creation : {table['description']}")
-        print(f"Adding {table['description']} rules")
-        for match_action in table['match_action']:
-            if not ovs_p4ctl.ovs_p4ctl_add_entry(table['switch'],table['name'], match_action):
+
+        table = self.config_data["table"][1]
+        log.info(f"Rule Creation : {table['description']}")
+        log.info(f"Adding {table['description']} rules")
+        for match_action in table["match_action"]:
+            if not p4rt_ctl.p4rt_ctl_add_entry(
+                table["switch"], table["name"], match_action
+            ):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to add table entry {match_action}")
-        
-        print("---------------------------------------")
-        print("Scenario-1: 3 min timer for data packet")
-        print("---------------------------------------")
-        
+
+        # Verification of timer or time out for data traffic
+        log.info("---------------------------------------")
+        log.info("Scenario-1: 3 min timer for data packet")
+        log.info("---------------------------------------")
         time.sleep(5)
-        print("sending SYN packet: A->B")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1])
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
+
+        # send syn packet
+        log.info("sending SYN packet: A->B")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+        )
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][0]], pkt)
         try:
-            verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][0]][1]])              
-            print(f"PASS: Verification of packets passed, Syn packet received")
+            verify_packets(
+                self,
+                pkt,
+                device_number=0,
+                ports=[port_ids[self.config_data["traffic"]["receive_port"][0]][1]],
+            )
+            log.passed(f" Verification of packets passed, Syn packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of Syn packet sent failed with exception {err}")
+            log.failed(f" Verification of Syn packet sent failed with exception {err}")
 
-        print("Sending SYN+ACK packet: B->A")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][1] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][0], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_flags="SA")
-        
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][1]], pkt)
+        # send syn+ack packet
+        log.info("Sending SYN+ACK packet: B->A")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_flags="SA",
+        )
+
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][1]], pkt)
         try:
-            verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][1]][1]]) 
-        
-            print(f"PASS: Verification of packets passed, SynAck packet received")
+            verify_packets(
+                self,
+                pkt,
+                device_number=0,
+                ports=[port_ids[self.config_data["traffic"]["receive_port"][1]][1]],
+            )
+
+            log.passed(f" Verification of packets passed, SynAck packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of SynAck packet sent failed with exception {err}")
+            log.failed(
+                f" Verification of SynAck packet sent failed with exception {err}"
+            )
 
-        print("Sending ACK packet: A->B")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="A")
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
+        # send ack packet
+        log.info("Sending ACK packet: A->B")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+            tcp_flags="A",
+        )
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][0]], pkt)
         try:
+            verify_packets(
+                self,
+                pkt,
+                device_number=0,
+                ports=[port_ids[self.config_data["traffic"]["receive_port"][0]][1]],
+            )
 
-            verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][0]][1]])  
-
-            print(f"PASS: Verification of packets passed, ACK packet received")
+            log.passed(f" Verification of packets passed, ACK packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of ACK packets sent failed with exception {err}")
- 
-        print("Connection establishment steps completed")
-        print("Verification of data traffic after connection establishment")
-        print("Sending data packet: A->B")
+            log.failed(f" Verification of ACK packets sent failed with exception {err}")
 
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="")
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
+        # Verification of data traffic after connection establishment
+        log.info("Connection establishment steps completed")
+        log.info("Verification of data traffic after connection establishment")
+        log.info("Sending data packet: A->B")
+
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+            tcp_flags="A",
+        )
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][0]], pkt)
         try:
-            verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][0]][1]])  
-            print(f"PASS: Verification of data packet passed : A->B")
+            verify_packets(
+                self,
+                pkt,
+                device_number=0,
+                ports=[port_ids[self.config_data["traffic"]["receive_port"][0]][1]],
+            )
+            log.passed(f" Verification of data packet passed : A->B")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of data packet sent failed with exception {err}: A->B")
+            log.failed(
+                f" Verification of data packet sent failed with exception {err}: A->B"
+            )
 
-        print("Sending data packet: B->A")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][1] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][0], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_flags="")
+        log.info("Sending data packet: B->A")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_flags="A",
+        )
 
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][1]], pkt)
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][1]], pkt)
         try:
-            verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][1]][1]])
+            verify_packets(
+                self,
+                pkt,
+                device_number=0,
+                ports=[port_ids[self.config_data["traffic"]["receive_port"][1]][1]],
+            )
 
-            print(f"PASS: Verification of date packet passed: B->A")
+            log.passed(f"Verification of date packet passed: B->A")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of data packet sent failed with exception {err}: B->A")
-
+            log.failed(
+                f"Verification of data packet sent failed with exception {err}: B->A"
+            )
 
         # Put Timer for 3 min after verify data traffic and check again
         time.sleep(180)
 
-        print("Verification of data traffic after 3 min Timer connection should not be establish")
-        print("Sending data packet: A->B")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="")
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
+        # Verification of data traffic after 3 min Timer connection should not be establish
+        log.info(
+            "Verification of data traffic after 3 min Timer connection should not be establish"
+        )
+        log.info("Sending data packet: A->B")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+            tcp_flags="A",
+        )
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][0]], pkt)
         try:
-            verify_no_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][0]][1])
-            print(f"PASS: Verification of data packet check passed : No traffic between A->B")
+            verify_no_packet(
+                self, pkt, port_ids[self.config_data["traffic"]["receive_port"][0]][1]
+            )
+            log.passed(
+                f" Verification of data packet check passed : No traffic between A->B"
+            )
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of data packet sent failed with exception {err}: A->B")
+            log.failed(
+                f" Verification of data packet sent failed with exception {err}: A->B"
+            )
 
-        print("Sending data packet: B->A")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][1] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][0], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_flags="")
+        log.info("Sending data packet: B->A")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_flags="A",
+        )
 
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][1]], pkt)
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][1]], pkt)
         try:
-            verify_no_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][1]][1])
-            print(f"PASS: Verification of date packet check passed : No traffic between B->A")
+            verify_no_packet(
+                self, pkt, port_ids[self.config_data["traffic"]["receive_port"][1]][1]
+            )
+            log.passed(
+                f" Verification of date packet check passed : No traffic between B->A"
+            )
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of data packet sent failed with exception {err}: B->A")
+            log.failed(
+                f" Verification of data packet sent failed with exception {err}: B->A"
+            )
 
-        print("-------------------------------")
-        print("Scenario-2: 2 min timer for ACK")
-        print("-------------------------------")
-
-        print("sending SYN packet: A->B")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1])
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
+        # Verification of timer or time out for ack packet
+        log.info("-------------------------------")
+        log.info("Scenario-2: 2 min timer for ACK")
+        log.info("-------------------------------")
+        # send syn packet
+        log.info("sending SYN packet: A->B")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+        )
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][0]], pkt)
         try:
-            verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][0]][1]])
-            print(f"PASS: Verification of packets passed, Syn packet received")
+            verify_packets(
+                self,
+                pkt,
+                device_number=1,
+                ports=[port_ids[self.config_data["traffic"]["receive_port"][0]][1]],
+            )
+            log.passed(f" Verification of packets passed, Syn packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of Syn packet sent failed with exception {err}")
+            log.failed(f" Verification of Syn packet sent failed with exception {err}")
 
-        print("Sending SYN+ACK packet: B->A")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][1] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][0], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_flags="SA")
+        # send syn+ack packet
+        log.info("Sending SYN+ACK packet: B->A")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_flags="SA",
+        )
 
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][1]], pkt)
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][1]], pkt)
         try:
-            verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][1]][1]])
-            print(f"PASS: Verification of packets passed, SynAck packet received")
+            verify_packets(
+                self,
+                pkt,
+                device_number=1,
+                ports=[port_ids[self.config_data["traffic"]["receive_port"][1]][1]],
+            )
+            log.passed(f" Verification of packets passed, SynAck packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of SynAck packet sent failed with exception {err}")
-        
+            log.failed(
+                f"Verification of SynAck packet sent failed with exception {err}"
+            )
 
-        # Put Timer for 2 min for ACK packet 
+        # Put Timer for 2 min for ACK packet
         time.sleep(120)
-
-        print("Verification of ACK after 2 min Timer connection should not be establish")
-        print("Sending ACK packet: A->B")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="A")
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
+        # Verification of ACK after 2 min Timer connection should not be establish
+        log.info(
+            "Verification of ACK after 2 min Timer connection should not be establish"
+        )
+        log.info("Sending ACK packet: A->B")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+            tcp_flags="A",
+        )
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][0]], pkt)
         try:
-            verify_no_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][1]][1])
-            print(f"PASS: Verification of ACK packet check passed : No ACK packet send between B->A")
+            verify_no_packet(
+                self, pkt, port_ids[self.config_data["traffic"]["receive_port"][1]][1]
+            )
+            log.passed(
+                f" Verification of ACK packet check passed : No ACK packet send between B->A"
+            )
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of ACK sent failed with exception {err}: B->A")
+            log.failed(f" Verification of ACK sent failed with exception {err}: B->A")
 
-        print("-------------------------------")
-        print("Scenario-3: 1 min timer for FIN")
-        print("-------------------------------")
-
-        print("sending SYN packet: A->B")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1])
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
+        # Verification of timer or time out for fin packet
+        log.info("-------------------------------")
+        log.info("Scenario-3: 1 min timer for FIN")
+        log.info("-------------------------------")
+        # send syn packet
+        log.info("sending SYN packet: A->B")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+        )
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][0]], pkt)
         try:
-            verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][0]][1]])
-            print(f"PASS: Verification of packets passed, Syn packet received")
+            verify_packets(
+                self,
+                pkt,
+                device_number=3,
+                ports=[port_ids[self.config_data["traffic"]["receive_port"][0]][1]],
+            )
+            log.passed(f"Verification of packets passed, Syn packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of Syn packet sent failed with exception {err}")
+            log.failed(f" Verification of Syn packet sent failed with exception {err}")
+        # send syn+ack packet
+        log.info("Sending SYN+ACK packet: B->A")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_flags="SA",
+        )
 
-        print("Sending SYN+ACK packet: B->A")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][1] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][0], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_flags="SA")
-
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][1]], pkt)
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][1]], pkt)
         try:
-            verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][1]][1]])
-            print(f"PASS: Verification of packets passed, SynAck packet received")
+            verify_packets(
+                self,
+                pkt,
+                device_number=3,
+                ports=[port_ids[self.config_data["traffic"]["receive_port"][1]][1]],
+            )
+            log.passed(f" Verification of packets passed, SynAck packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of SynAck packet sent failed with exception {err}")
-
-        print("Sending ACK packet: A->B")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="A")
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
+            log.failed(
+                f" Verification of SynAck packet sent failed with exception {err}"
+            )
+        # send ack packet
+        log.info("Sending ACK packet: A->B")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+            tcp_flags="A",
+        )
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][0]], pkt)
         try:
+            verify_packets(
+                self,
+                pkt,
+                device_number=3,
+                ports=[port_ids[self.config_data["traffic"]["receive_port"][0]][1]],
+            )
 
-            verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][0]][1]])
-
-            print(f"PASS: Verification of packets passed, ACK packet received")
+            log.passed(f"Verification of packets passed, ACK packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of ACK packets sent failed with exception {err}")
-
-        print("Connection Termination")
-        print("Sending FIN packet: A->B")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="F")
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
+            log.failed(f"Verification of ACK packets sent failed with exception {err}")
+        # send fin packet
+        log.info("Connection Termination")
+        log.info("Sending FIN packet: A->B")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+            tcp_flags="F",
+        )
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][0]], pkt)
         try:
-            verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][0]][1]])  
-            print(f"PASS: Verification of packets passed, FIN packet received")
+            verify_packets(
+                self,
+                pkt,
+                device_number=3,
+                ports=[port_ids[self.config_data["traffic"]["receive_port"][0]][1]],
+            )
+            log.passed(f" Verification of packets passed, FIN packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of FIN packet sent failed with exception {err}")
-        
+            log.failed(f" Verification of FIN packet sent failed with exception {err}")
+
         # Put Timer for 1 min for FIN packet
         time.sleep(60)
-
-        print("Verification of FIN after 1 min Timer connection should not be establish")
-        print("Sending data packet: A->B")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="")
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
+        # Verification of FIN after 1 min Timer connection should not be establish
+        log.info(
+            "Verification of FIN after 1 min Timer connection should not be establish"
+        )
+        log.info("Sending FIN packet: A->B")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+            tcp_flags="F",
+        )
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][0]], pkt)
         try:
-            verify_no_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][0]][1])
-            print(f"PASS: Verification of FIN check passed : No FIN packet send between A->B")
+            verify_no_packet(
+                self, pkt, port_ids[self.config_data["traffic"]["receive_port"][0]][1]
+            )
+            log.passed(
+                f" Verification of FIN check passed : No FIN packet send between A->B"
+            )
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of data packet sent failed with exception {err}: A->B")
+            log.failed(
+                f" Verification of data packet sent failed with exception {err}: A->B"
+            )
 
-        print("-------------------------------")
-        print("Scenario-4: 1 min timer for RST")
-        print("-------------------------------")
-        print("sending SYN packet: A->B")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1])
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
+        # Verification of timer or time out for rst packet
+        log.info("-------------------------------")
+        log.info("Scenario-4: 1 min timer for RST")
+        log.info("-------------------------------")
+        # send syn packet
+        log.info("sending SYN packet: A->B")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+        )
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][0]], pkt)
         try:
-            verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][0]][1]])
-            print(f"PASS: Verification of packets passed, Syn packet received")
+            verify_packets(
+                self,
+                pkt,
+                device_number=4,
+                ports=[port_ids[self.config_data["traffic"]["receive_port"][0]][1]],
+            )
+            log.passed(f"Verification of packets passed, Syn packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of Syn packet sent failed with exception {err}")
+            log.failed(f"Verification of Syn packet sent failed with exception {err}")
+        # send syn+ack packet
+        log.info("Sending SYN+ACK packet: B->A")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_flags="SA",
+        )
 
-        print("Sending SYN+ACK packet: B->A")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][1] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][0], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_flags="SA")
-
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][1]], pkt)
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][1]], pkt)
         try:
-            verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][1]][1]])
+            verify_packets(
+                self,
+                pkt,
+                device_number=4,
+                ports=[port_ids[self.config_data["traffic"]["receive_port"][1]][1]],
+            )
 
-            print(f"PASS: Verification of packets passed, SynAck packet received")
+            log.passed(f"Verification of packets passed, SynAck packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of SynAck packet sent failed with exception {err}")
-
-        print("Sending ACK packet: A->B")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="A")
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
+            log.failed(
+                f"Verification of SynAck packet sent failed with exception {err}"
+            )
+        # send ack packet
+        log.info("Sending ACK packet: A->B")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+            tcp_flags="A",
+        )
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][0]], pkt)
         try:
-
-            verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][0]][1]])
-            print(f"PASS: Verification of packets passed, ACK packet received")
+            verify_packets(
+                self,
+                pkt,
+                device_number=4,
+                ports=[port_ids[self.config_data["traffic"]["receive_port"][0]][1]],
+            )
+            log.passed(f" Verification of packets passed, ACK packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of ACK packets sent failed with exception {err}")
-
-        print("Connection Reset")
-        print("Sending RST packet: A->B")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="R")
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
+            log.failed(f" Verification of ACK packets sent failed with exception {err}")
+        # send rst packet
+        log.info("Connection Reset")
+        log.info("Sending RST packet: A->B")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+            tcp_flags="R",
+        )
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][0]], pkt)
         try:
-            verify_packets(self, pkt, device_number=0, ports=[port_ids[self.config_data['traffic']['receive_port'][0]][1]])
-            print(f"PASS: Verification of packets passed, RST packet received")
+            verify_packets(
+                self,
+                pkt,
+                device_number=4,
+                ports=[port_ids[self.config_data["traffic"]["receive_port"][0]][1]],
+            )
+            log.passed(f" Verification of packets passed, RST packet received")
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of RST packet sent failed with exception {err}")
+            log.failed(f" Verification of RST packet sent failed with exception {err}")
 
         # Put Timer for 1 min for RST packet
         time.sleep(60)
-        print("Verification of RST after 1 min Timer connection should not be establish")
-        print("Sending RST packet: A->B")
-        pkt = simple_tcp_packet(eth_src=self.config_data['traffic']['in_pkt_header']['eth_mac'][0], eth_dst=self.config_data['traffic']['in_pkt_header']['eth_mac'][1], ip_src=self.config_data['traffic']['in_pkt_header']['ip_address'][0] , ip_dst=self.config_data['traffic']['in_pkt_header']['ip_address'][1], tcp_sport=self.config_data['traffic']['in_pkt_header']['tcp_port'][0], tcp_dport=self.config_data['traffic']['in_pkt_header']['tcp_port'][1], tcp_flags="R")
-        send_packet(self, port_ids[self.config_data['traffic']['send_port'][0]], pkt)
+        # Verification of RST after 1 min Timer connection should not be establish
+        log.info(
+            "Verification of RST after 1 min Timer connection should not be establish"
+        )
+        log.info("Sending RST packet: A->B")
+        pkt = simple_tcp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
+            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+            tcp_flags="R",
+        )
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][0]], pkt)
         try:
-            verify_no_packet(self, pkt, port_ids[self.config_data['traffic']['receive_port'][0]][1])
-            print(f"PASS: Verification of RST check passed : No RST packet send between A->B")
+            verify_no_packet(
+                self, pkt, port_ids[self.config_data["traffic"]["receive_port"][0]][1]
+            )
+            log.passed(
+                f" Verification of RST check passed : No RST packet send between A->B"
+            )
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            print(f"FAIL: Verification of data packet sent failed with exception {err}: A->B")
-
+            log.failed(
+                f" Verification of data packet sent failed with exception {err}: A->B"
+            )
 
         self.dataplane.kill()
 
-
     def tearDown(self):
-        for table in self.config_data['table']:
-            print(f"Deleting {table['description']} rules")
-            for del_action in table['del_action']:
-                ovs_p4ctl.ovs_p4ctl_del_entry(table['switch'], table['name'], del_action)
+        # delete the added rules
+        for table in self.config_data["table"]:
+            log.info(f"Deleting {table['description']} rules")
+            for del_action in table["del_action"]:
+                p4rt_ctl.p4rt_ctl_del_entry(table["switch"], table["name"], del_action)
 
         if self.result.wasSuccessful():
-            print("Test has PASSED")
+            log.passed("Test has PASSED")
         else:
-            print("Test has FAILED")
-        
-
- 
-
+            log.failed("Test has FAILED")

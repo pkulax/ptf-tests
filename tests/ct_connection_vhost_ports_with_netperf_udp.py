@@ -54,6 +54,7 @@ class Connection_Track(BaseTest):
         config[
             "relax"
         ] = True  # for verify_packets to ignore other packets received at the interface
+
         test_params = test_params_get()
         config_json = test_params["config_json"]
         self.config_data = get_config_dict(
@@ -83,6 +84,16 @@ class Connection_Track(BaseTest):
             self.fail("Failed to set pipe")
 
         # Add the rules as per table entries
+        table = self.config_data["table"][2]
+        log.info(f"Rule Creation : {table['description']}")
+        log.info(f"Adding {table['description']} rules")
+        for match_action in table["match_action"]:
+            if not p4rt_ctl.p4rt_ctl_add_entry(
+                table["switch"], table["name"], match_action
+            ):
+                self.result.addFailure(self, sys.exc_info())
+                self.fail(f"Failed to add table entry {match_action}")
+
         table = self.config_data["table"][0]
         log.info(f"Rule Creation : {table['description']}")
         log.info(f"Adding {table['description']} rules")
@@ -147,33 +158,31 @@ class Connection_Track(BaseTest):
                     f"FAIL: failed to set ethtool offload {self.config_data['port'][i]['interface']} on VM{i}"
                 )
 
-        # Check Ntperf Installed or Not
+        # Netperf and netserver for local host
         time.sleep(30)
         for i in range(len(self.conn_obj_list)):
             if not test_utils.vm_check_netperf(self.conn_obj_list[i], f"VM{i}"):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"FAIL: netperf is not install on VM{i}")
+        i = 0
+        log.info(f"Start netserver on VM{i}")
+        if not test_utils.vm_start_netserver(self.conn_obj_list[i]):
+            self.result.addFailure(self, sys.exc_info())
+            self.fail(f"FAIL: failed to start netserver on VM{i}")
+        log.info(f"netserver started on VM{i}")
 
-        for i in range(0, 4):
-            if i % 2 == 0:
-                log.info(f"Start netserver on VM{i}")
-                if not test_utils.vm_start_netserver(self.conn_obj_list[i]):
-                    self.result.addFailure(self, sys.exc_info())
-                    self.fail(f"FAIL: failed to start netserver on VM{i}")
-                log.info(f"netserver started on VM{i}")
-
-            # send netperf from local VM
-            else:
-                log.info(f"Initially execute netperf on VM{i}")
-                if not test_utils.vm_netperf_client(
-                    self.conn_obj_list[i],
-                    self.config_data["vm"][i]["remote_ip"],
-                    self.config_data["netperf"]["testlen"],
-                    self.config_data["netperf"]["testname"],
-                    option=self.config_data["netperf"]["cmd_option"],
-                ):
-                    self.result.addFailure(self, sys.exc_info())
-                    self.fail(f"FAIL: failed to start netperf")
+        # send netperf from local VM
+        i = 1
+        log.info(f"Initially execute netperf on VM{i}")
+        if not test_utils.vm_netperf_client(
+            self.conn_obj_list[i],
+            self.config_data["vm"][i]["remote_ip"],
+            self.config_data["netperf"]["testlen"],
+            self.config_data["netperf"]["testname"],
+            option=self.config_data["netperf"]["cmd_option"],
+        ):
+            self.result.addFailure(self, sys.exc_info())
+            self.fail(f"FAIL: failed to start netperf")
 
     def tearDown(self):
         # delete the added rules

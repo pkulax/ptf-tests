@@ -43,7 +43,7 @@ class K8_DPDK(BaseTest):
         self.result = unittest.TestResult()
         config[
             "relax"
-            ] = True  # for verify_packets to ignore other packets received at the interface
+        ] = True  # for verify_packets to ignore other packets received at the interface
         yaml_files = []
         no_of_pods = 4
         for i in range(no_of_pods):
@@ -68,9 +68,9 @@ class K8_DPDK(BaseTest):
         # Create 4 test pods and verify if running
         assert len(self.pod_bodies) == 4
         for pod_body in self.pod_bodies:
-            k8_utils.create_pod(pod_body['metadata']['name'], pod_body)
+            k8_utils.create_pod(pod_body["metadata"]["name"], pod_body)
             time.sleep(5)
-            if not k8_utils.verify_pod_running(pod_body['metadata']['name']):
+            if not k8_utils.verify_pod_running(pod_body["metadata"]["name"]):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"{pod_body['metadata']['name']} not running")
 
@@ -80,7 +80,9 @@ class K8_DPDK(BaseTest):
         # Get IP address of each pod
         pod_ip_dict = {}
         for pod_body in self.pod_bodies:
-            pod_ip_dict[pod_body['metadata']['name']] = k8_utils.find_pod_ip(pod_body['metadata']['name'])
+            pod_ip_dict[pod_body["metadata"]["name"]] = k8_utils.find_pod_ip(
+                pod_body["metadata"]["name"]
+            )
 
         log.info(f"Pod name and Pod IP mapping: {pod_ip_dict}")
 
@@ -94,13 +96,15 @@ class K8_DPDK(BaseTest):
                     self.result.addFailure(self, sys.exc_info())
                     self.fail(f"Failed to ping from {src_pod} to {dst_ip}")
                 else:
-                    log.passed(f"Ping from {src_pod} to {dst_ip} passed with 0% packet loss")
+                    log.passed(
+                        f"Ping from {src_pod} to {dst_ip} passed with 0% packet loss"
+                    )
 
         # Delete 4 Pods
         for pod_body in self.pod_bodies:
-            k8_utils.delete_pod(pod_body['metadata']['name'])
+            k8_utils.delete_pod(pod_body["metadata"]["name"])
             time.sleep(5)
-            if k8_utils.verify_pod_running(pod_body['metadata']['name']):
+            if k8_utils.verify_pod_running(pod_body["metadata"]["name"]):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"{pod_body['metadata']['name']} still running")
 
@@ -114,7 +118,9 @@ class K8_DPDK(BaseTest):
                 log.info(f"{src_pod} > ping -c 10 {dst_ip}")
                 if k8_utils.ping_and_verify_no_packet_loss(src_pod, dst_ip):
                     self.result.addFailure(self, sys.exc_info())
-                    self.fail(f"Ping from {src_pod} to {dst_ip} passed with 0% packet loss; Failure was expected")
+                    self.fail(
+                        f"Ping from {src_pod} to {dst_ip} passed with 0% packet loss; Failure was expected"
+                    )
                 else:
                     log.passed(f"Ping from {src_pod} to {dst_ip} failed as expected")
 
@@ -123,4 +129,3 @@ class K8_DPDK(BaseTest):
             log.info("Test has PASSED")
         else:
             log.info("Test has FAILED")
-

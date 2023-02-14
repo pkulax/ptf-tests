@@ -17,32 +17,35 @@ from kubernetes import client, config
 from kubernetes.stream import stream
 import common.utils.log as log
 
-class K8_DPDK():
-    '''
+
+class K8_DPDK:
+    """
     Base class for K8 api s for dpdk backend
-    '''
+    """
+
     def __init__(self):
-        '''
+        """
         Constructor method
-        '''
+        """
         config.load_kube_config()
         self.apiinstance = client.CoreV1Api()
         self.pods = []
 
-
-    def create_pod(self, pod_name: str, pod_body: dict, namespace='default'):
-        '''
+    def create_pod(self, pod_name: str, pod_body: dict, namespace="default"):
+        """
         Method to create a pod
         params:
         pod_name: name of the pod
         pod_body: pod manifest in the form of dictionary
         namespace: namespace for creating pods
 
-        returns: 
+        returns:
         pod object
-        '''
+        """
         try:
-            resp = self.apiinstance.create_namespaced_pod(namespace=namespace, body=pod_body)
+            resp = self.apiinstance.create_namespaced_pod(
+                namespace=namespace, body=pod_body
+            )
         except Exception as err:
             log.failed(f"Exception occurred: {err}")
             return False
@@ -52,30 +55,32 @@ class K8_DPDK():
         return True
 
     def list_pod(self):
-        '''
+        """
         Method to list all pods
         returns:
         ret: String
-        '''
+        """
         ret = self.apiinstance.list_pod_for_all_namespaces(watch=False)
-        '''for item in ret.items:
+        """for item in ret.items:
             print(
             "%s\t%s\t%s" %
             (item.status.pod_ip,
              item.metadata.namespace,
-             item.metadata.name))'''
+             item.metadata.name))"""
 
         return ret
 
     def delete_pods(self):
-        '''
+        """
         Delete all pods
         returns:
         Boolean True/False
-        '''
+        """
         try:
             for pod in self.pods:
-                self.apiinstance.delete_namespaced_pod(name=pod, grace_period_seconds=0, namespace='default', force=True)
+                self.apiinstance.delete_namespaced_pod(
+                    name=pod, grace_period_seconds=0, namespace="default", force=True
+                )
         except Exception as err:
             log.failed(f"Exception occurred: {err}")
             return False
@@ -83,16 +88,18 @@ class K8_DPDK():
         return True
 
     def delete_pod(self, pod_name: str):
-        '''
+        """
         Deletes pod: pod_name
         params:
         pod_name: String
 
         returns:
         Boolean True/False
-        '''
+        """
         try:
-            self.apiinstance.delete_namespaced_pod(name=pod_name, grace_period_seconds=0, namespace='default')
+            self.apiinstance.delete_namespaced_pod(
+                name=pod_name, grace_period_seconds=0, namespace="default"
+            )
         except Exception as err:
             log.failed(f"Exception occurred: {err}")
             return False
@@ -100,7 +107,7 @@ class K8_DPDK():
         return True
 
     def execute_command(self, pod_name: str, cmd: list):
-        '''
+        """
         Method to execute command
         params:
         pod_name: String
@@ -108,14 +115,18 @@ class K8_DPDK():
 
         returns:
         resp: String
-        '''
+        """
         try:
-            resp = stream(self.apiinstance.connect_get_namespaced_pod_exec,
-                  pod_name,
-                  'default',
-                  command=cmd,
-                  stderr=True, stdin=False,
-                  stdout=True, tty=False)
+            resp = stream(
+                self.apiinstance.connect_get_namespaced_pod_exec,
+                pod_name,
+                "default",
+                command=cmd,
+                stderr=True,
+                stdin=False,
+                stdout=True,
+                tty=False,
+            )
 
         except Exception as err:
             log.failed(f"Exception occurred: {err}")

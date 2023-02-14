@@ -44,6 +44,7 @@ from common.utils.config_file_utils import (
     get_gnmi_params_hotplug,
 )
 
+
 class DPDK_Flow_Dump_with_LNT(BaseTest):
     def setUp(self):
         BaseTest.setUp(self)
@@ -69,7 +70,7 @@ class DPDK_Flow_Dump_with_LNT(BaseTest):
         if not gnmi_ctl_utils.gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure gnmi ctl ports")
-       
+
         # bring up TAP0
         if not gnmi_ctl_utils.ip_set_dev_up(self.tap_port_list[0]):
             self.result.addFailure(self, sys.exc_info())
@@ -79,7 +80,7 @@ class DPDK_Flow_Dump_with_LNT(BaseTest):
         if not gnmi_ctl_utils.ip_set_dev_up(self.link_port_list[0]["control-port"]):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to bring up {self.link_port_list[0]['control-port']")
-            
+
         if not gnmi_ctl_utils.ip_add_addr(
             self.link_port_list[0]["control-port"],
             self.config_data["vxlan"]["tep_ip"][0],
@@ -95,7 +96,7 @@ class DPDK_Flow_Dump_with_LNT(BaseTest):
         ):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to generate P4C artifacts or pb.bin")
-            
+
         # set pipe line
         if not p4rt_ctl.p4rt_ctl_set_pipe(
             self.config_data["switch"],
@@ -122,12 +123,11 @@ class DPDK_Flow_Dump_with_LNT(BaseTest):
             self.config_data["vxlan"]["tep_ip"][1].split("/")[0],
             self.config_data["vxlan"]["dst_port"][0],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"Failed to add vxlan {self.config_data['vxlan']['vxlan_name'][0]} to bridge {self.config_data['bridge']}"
             )
-       
+
         for i in range(len(self.tap_port_list)):
             id = self.config_data["port"][i]["vlan"]
             vlanname = "vlan" + id
@@ -163,20 +163,22 @@ class DPDK_Flow_Dump_with_LNT(BaseTest):
         time.sleep(10)
         # Get dump entries table
         log.info("Get flow dump table entry")
-        dump_table = p4rt_ctl.p4rt_ctl_dump_entities(self.config_data['switch'])
+        dump_table = p4rt_ctl.p4rt_ctl_dump_entities(self.config_data["switch"])
         # Verify each entry
         log.info("Verify each entry")
-        if len(dump_table[1:-1]) != len(self.config_data['flow_dump_table']):
+        if len(dump_table[1:-1]) != len(self.config_data["flow_dump_table"]):
             self.result.addFailure(self, sys.exc_info())
-            self.fail(f"The table {dump_table[1:-1]} has different number entry than definition")
+            self.fail(
+                f"The table {dump_table[1:-1]} has different number entry than definition"
+            )
         else:
             for each in dump_table[1:-1]:
                 entry = each.strip()
                 if entry in self.config_data["flow_dump_table"]:
-                    log.passed(f"The entry \"{entry}\" in flow dump is verified")
+                    log.passed(f'The entry "{entry}" in flow dump is verified')
                 else:
                     self.result.addFailure(self, sys.exc_info())
-                    self.fail(f"Failed to verify entry \"{entry}\"")
+                    self.fail(f'Failed to verify entry "{entry}"')
 
     def tearDown(self):
         log.info("Begin to teardown ...")

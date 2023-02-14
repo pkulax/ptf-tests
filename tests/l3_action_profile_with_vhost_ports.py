@@ -46,7 +46,6 @@ from common.utils.gnmi_ctl_utils import gnmi_ctl_set_and_verify
 
 class L3_Action_Profile_Vhost(BaseTest):
     def setUp(self):
-
         BaseTest.setUp(self)
         self.result = unittest.TestResult()
 
@@ -220,7 +219,6 @@ class L3_Action_Profile_Vhost(BaseTest):
         conn2.close()
 
     def tearDown(self):
-
         table = self.config_data["table"][0]
         # Delete members
         log.info("Deleting members")

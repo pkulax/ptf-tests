@@ -51,9 +51,7 @@ class L3_WCM_Link(BaseTest):
     def setUp(self):
         BaseTest.setUp(self)
         self.result = unittest.TestResult()
-        config[
-            "relax"
-        ] = True 
+        config["relax"] = True
 
         test_params = test_params_get()
         config_json = test_params["config_json"]

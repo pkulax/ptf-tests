@@ -357,7 +357,6 @@ class L3_Verify_Traffic_with_Action_Profile(BaseTest):
         self.dataplane.kill()
 
     def tearDown(self):
-
         # Deleting rules
         table = self.config_data["table"][1]
         log.info("Deleting rules")

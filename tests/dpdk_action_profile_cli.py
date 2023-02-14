@@ -29,7 +29,8 @@ import unittest
 
 # ptf related imports
 import ptf
-#import ptf.dataplane as dataplane
+
+# import ptf.dataplane as dataplane
 from ptf.base_tests import BaseTest
 from ptf.testutils import *
 from ptf import config
@@ -53,16 +54,14 @@ from common.utils.gnmi_ctl_utils import gnmi_ctl_set_and_verify, ip_set_ipv4
 
 
 class DPDK_Action_Profile_CLI(BaseTest):
-
     def setUp(self):
         BaseTest.setUp(self)
         self.result = unittest.TestResult()
-        
+
         test_params = test_params_get()
-        config_json = test_params['config_json']
+        config_json = test_params["config_json"]
         self.config_data = get_config_dict(config_json)
         self.gnmictl_params = get_gnmi_params_simple(self.config_data)
-
 
     def runTest(self):
         # Compile p4 file using p4c compiler and generate binary using tdi pipeline builder
@@ -75,43 +74,52 @@ class DPDK_Action_Profile_CLI(BaseTest):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure gnmi cli ports")
 
-
-        port_list = self.config_data['port_list']
+        port_list = self.config_data["port_list"]
 
         # Run Set-pipe command for set pipeline
-        if not p4rt_ctl.p4rt_ctl_set_pipe(self.config_data['switch'], self.config_data['pb_bin'], self.config_data['p4_info']):
+        if not p4rt_ctl.p4rt_ctl_set_pipe(
+            self.config_data["switch"],
+            self.config_data["pb_bin"],
+            self.config_data["p4_info"],
+        ):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to set pipe")
-        
+
         # Add table entries
-        table = self.config_data['table'][0]
+        table = self.config_data["table"][0]
 
         log.info("Add action profile members")
         member_count = 0
-        for member in table['member_details']:
-            if not p4rt_ctl.p4rt_ctl_add_member_and_verify(table['switch'],table['name'],member):
+        for member in table["member_details"]:
+            if not p4rt_ctl.p4rt_ctl_add_member_and_verify(
+                table["switch"], table["name"], member
+            ):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to add member {member}")
-            member_count+=1
+            member_count += 1
 
         # Checking for action profile members
         log.info("Checking for action profile members")
-        for mem_id in table['del_member']:
-            if not p4rt_ctl.p4rt_ctl_get_member(table['switch'],table['name'],member_id=mem_id):
+        for mem_id in table["del_member"]:
+            if not p4rt_ctl.p4rt_ctl_get_member(
+                table["switch"], table["name"], member_id=mem_id
+            ):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to get member {mem_id}")
-      
+
         # Deleting members
-        log.info("Deleting members")    
-        for index,del_mem in enumerate(table['del_member']):
+        log.info("Deleting members")
+        for index, del_mem in enumerate(table["del_member"]):
             if index == 0 or index == 7:
-                p4rt_ctl.p4rt_ctl_del_member(table['switch'],table['name'],del_mem)
+                p4rt_ctl.p4rt_ctl_del_member(table["switch"], table["name"], del_mem)
 
         # Checking for the deleted members, fail if deleted members exists
-        log.info("Checking deleted members")    
-        for index,mem_id in enumerate(table['del_member']):
+        log.info("Checking deleted members")
+        for index, mem_id in enumerate(table["del_member"]):
             if index == 0 or index == 7:
-                if p4rt_ctl.p4rt_ctl_get_member(table['switch'],table['name'],member_id=mem_id):
+                if p4rt_ctl.p4rt_ctl_get_member(
+                    table["switch"], table["name"], member_id=mem_id
+                ):
                     self.result.addFailure(self, sys.exc_info())
                     self.fail(f"Deleted member check failed for {mem_id}")
                 else:
@@ -119,17 +127,16 @@ class DPDK_Action_Profile_CLI(BaseTest):
 
         # Checking for undeleted member
         log.info("Checking undeleted member")
-        for index,mem_id in enumerate(table['del_member']):
-            if index in range(1,7): 
-                if not p4rt_ctl.p4rt_ctl_get_member(table['switch'],table['name'],member_id=mem_id):
+        for index, mem_id in enumerate(table["del_member"]):
+            if index in range(1, 7):
+                if not p4rt_ctl.p4rt_ctl_get_member(
+                    table["switch"], table["name"], member_id=mem_id
+                ):
                     self.result.addFailure(self, sys.exc_info())
                     self.fail(f"Failed to get member {mem_id}")
 
     def tearDown(self):
-
         if self.result.wasSuccessful():
             log.passed("Test has PASSED")
         else:
             self.fail("Test has FAILED")
-
- 

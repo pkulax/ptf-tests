@@ -148,58 +148,6 @@ def gen_dep_files_p4c_dpdk_pna_tdi_pipeline_builder(config_data):
     return True
 
 
-def gen_dep_files_p4c_dpdk_pna_tdi_pipeline_builder_ct_timer(config_data):
-    """
-    util function to generate p4 artifacts for dpdk pna architecture
-    :params: config_data --> dict --> dictionary with all config data loaded from json
-    :needs to update spec file for time usage
-    :returns: Boolean True/False
-    """
-    local = Local()
-    p4file = config_data["p4file"]
-    conf_file = p4file + ".conf"
-    output_dir = os.sep.join(["common", "p4c_artifacts", p4file])
-    pb_bin_file = config_data["p4file"] + ".pb.bin"
-    config_data["pb_bin"] = output_dir + "/" + pb_bin_file
-    config_data["p4_info"] = output_dir + "/p4Info.txt"
-    spec_file = p4file + ".spec"
-    p4file = p4file + ".p4"
-    cmd = f"""p4c-dpdk -I p4include -I p4include/dpdk --p4v=16 --p4runtime-files \
-            {output_dir}/p4Info.txt -o {output_dir}/pipe/{spec_file} --arch pna --bf-rt-schema {output_dir}/bf-rt.json --context \
-            {output_dir}/pipe/context.json {output_dir}/{p4file}"""
-    log.info(cmd)
-    out, returncode, err = local.execute_command(cmd)
-    if returncode:
-        log.failed(f"Failed to run p4c: {out} {err}")
-        return False
-
-    log.passed(f"{cmd}")
-
-    with open(f"{output_dir}/pipe/{spec_file}", "r", encoding="utf-8") as file:
-        data = file.readlines()
-
-    data[155] = "\t\t60\n"
-    data[157] = "\t\t180\n"
-
-    with open(f"{output_dir}/pipe/{spec_file}", "w", encoding="utf-8") as file:
-        file.writelines(data)
-
-    cmd = f"""cd {output_dir}; tdi_pipeline_builder --p4c_conf_file={conf_file} \
-            --bf_pipeline_config_binary_file={pb_bin_file}"""
-
-    out, returncode, err = local.execute_command(cmd)
-    if returncode:
-        log.info(f"Failed to run ovs_pipeline_builder: {out} {err}")
-        return False
-
-    cmd = f"""tdi_pipeline_builder --p4c_conf_file={conf_file} \
-            --bf_pipeline_config_binary_file={pb_bin_file}"""
-
-    log.passed(f"{cmd}")
-
-    return True
-
-
 def qemu_version(ver="6.1.0"):
     """
     To Add/Del same Hotplug mutiple times need to check qemu version >= 6.1.0.
@@ -571,13 +519,13 @@ def ovs_add_ctrl_port_to_bridge(bridge, port_list, p4_device_id):
         ovs-vsctl add-port br1 TAP0
     """
     ovs = Ovs(get_connection_object())
-    
+
     # Add a brigdge
     out, returncode, err = ovs.vsctl.add_br(bridge)
     if returncode:
         log.failed(f"Failed to add bridge {bridge} due to {out} {err}")
         return False
-    
+
     # Add port into ovs bridge
     for port in port_list:
         out, returncode, err = ovs.vsctl.add_port(bridge, port)
@@ -586,6 +534,7 @@ def ovs_add_ctrl_port_to_bridge(bridge, port_list, p4_device_id):
             return False
 
     return True
+
 
 def get_ovs_port_dump(bridge, ctrl_port_list):
     """
@@ -1410,6 +1359,7 @@ def vtysh_config_frr_router_interface(
 
     return True
 
+
 def restart_frr_service(remote=False, hostname="", username="", password=""):
     """
     A function to restart frr service by executing "service stop frr" or "
@@ -1425,16 +1375,17 @@ def restart_frr_service(remote=False, hostname="", username="", password=""):
 
     cmd = "systemctl restart frr"
     _, _, err = connection.execute_command(cmd)
-    
+
     if err:
         log.failed("faild to restart frr service")
         connection.tear_down()
         return False
-    log.passed(f'successfuly execute {cmd} on {hostname}')
+    log.passed(f"successfuly execute {cmd} on {hostname}")
 
     connection.tear_down()
 
     return True
+
 
 def run_frr_service(action, remote=False, hostname="", username="", password=""):
     """
@@ -1449,22 +1400,23 @@ def run_frr_service(action, remote=False, hostname="", username="", password="")
         hostname = "local host"
         connection = Local()
 
-    if action == 'start' or action == 'stop':
+    if action == "start" or action == "stop":
         cmd = "systemctl " + action + " frr"
     else:
         log.failed(f"{action} is not right action to run frr service")
         return False
     _, _, err = connection.execute_command(cmd)
-    
+
     if err:
         log.failed(f"faild to {action} frr service")
         connection.tear_down()
         return False
-    log.passed(f'successfuly execute {cmd} on {hostname}')
+    log.passed(f"successfuly execute {cmd} on {hostname}")
 
     connection.tear_down()
 
     return True
+
 
 def check_bgp_route(remote=False, hostname="", username="", password=""):
     """
@@ -1476,23 +1428,21 @@ def check_bgp_route(remote=False, hostname="", username="", password=""):
     else:
         hostname = "local host"
         connection = Local()
-        
+
     result, _, _ = connection.execute_command("ip route |grep bgp")
-    if result: 
+    if result:
         return True
-    
+
     return False
 
 
 def send_ctrl_c(conn):
-
     conn.sendCmd("\x03")
 
     return True
 
 
 def send_ctrl_d(conn):
-
     conn.sendCmd("\x04")
 
     return True
@@ -1665,7 +1615,6 @@ def verify_scapy_traffic_from_vm(vm_id, conn, config_data, traffic_type="unicast
 
 
 def print_scapy_pcap_summary(conn):
-
     cmd_list = [
         "pkt_summary=[]",
         "pkt_summary = [x.summary() for x in packets]",
@@ -1695,7 +1644,7 @@ def create_yaml_file_from_template(pod_name, infile="test_pod_template.yaml"):
     local = Local()
 
     cmd = f'sed "s/{TAG}/{pod_name}/" {infile} > {outfile}'
-    _,returncode,err = local.execute_command(cmd)
+    _, returncode, err = local.execute_command(cmd)
 
     if err or returncode:
         log.failed(f"Failed to create {outfile} from {infile}")

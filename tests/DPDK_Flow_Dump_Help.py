@@ -33,6 +33,7 @@ import common.utils.log as log
 import common.utils.test_utils as test_utils
 from common.utils.config_file_utils import get_config_dict
 
+
 class DPDK_Flow_Dump_HELP(BaseTest):
     def setUp(self):
         BaseTest.setUp(self)
@@ -43,7 +44,7 @@ class DPDK_Flow_Dump_HELP(BaseTest):
         self.config_data = get_config_dict(config_json)
 
     def runTest(self):
-        # List the p4rt_ctl Help menu 
+        # List the p4rt_ctl Help menu
         # The help_option has "--help" or "-h"
         # The argument is "p4rt-ctl dump-entries SWITCH"
         for option in self.config_data["help_option"]:
@@ -53,14 +54,10 @@ class DPDK_Flow_Dump_HELP(BaseTest):
             if result:
                 for each in self.config_data["arguments"]:
                     if each in result:
-                        log.passed(
-                            f'The argument "{each}" is verifed in "{helpcmd}"'
-                        )
+                        log.passed(f'The argument "{each}" is verifed in "{helpcmd}"')
                     else:
                         self.result.addFailure(self, sys.exc_info())
-                        log.failed(
-                            'unable to get argument "{each}" in "{helpcmd}"'
-                        )
+                        log.failed('unable to get argument "{each}" in "{helpcmd}"')
             else:
                 self.result.addFailure(self, sys.exc_info())
                 log.failed('unable to get "{helpcmd}"')

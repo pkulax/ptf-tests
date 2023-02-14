@@ -111,24 +111,25 @@ class DPDK_Flow_Dump_with_action_selector(BaseTest):
             ):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to add table entry {match_action}")
-      
+
         # Get dump entries table
-        dump_table = p4rt_ctl.p4rt_ctl_dump_entities(self.config_data['switch'])
+        dump_table = p4rt_ctl.p4rt_ctl_dump_entities(self.config_data["switch"])
         # Verify each entry
         if len(dump_table[1:-1]) != len(self.config_data["flow_dump_table"]):
             self.result.addFailure(self, sys.exc_info())
-            self.fail("The table {dump_table[1:-1]} has different number entry than definition")
+            self.fail(
+                "The table {dump_table[1:-1]} has different number entry than definition"
+            )
         else:
             for each in dump_table[1:-1]:
                 entry = each.strip()
                 if entry in self.config_data["flow_dump_table"]:
-                    log.passed(f"The entry \"{entry}\" in flow dump is verified")
+                    log.passed(f'The entry "{entry}" in flow dump is verified')
                 else:
                     self.result.addFailure(self, sys.exc_info())
-                    self.fail(f"Failed to verify entry \"{entry}\"")
+                    self.fail(f'Failed to verify entry "{entry}"')
 
     def tearDown(self):
-
         # Deleting rules
         log.info("Deleting rules")
         table = self.config_data["table"][1]
@@ -136,7 +137,7 @@ class DPDK_Flow_Dump_with_action_selector(BaseTest):
             p4rt_ctl.p4rt_ctl_del_entry(
                 table["switch"], table["name"], del_action.split(",")[0]
             )
-            
+
         # Deleting group
         log.info("Deleting groups")
         table = self.config_data["table"][0]

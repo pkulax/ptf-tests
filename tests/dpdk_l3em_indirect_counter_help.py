@@ -44,7 +44,7 @@ class IPDK_L3EM_INDIRECT_COUNTER_HELP(BaseTest):
         self.config_data = get_config_dict(config_json)
 
     def runTest(self):
-        # List the p4rt_ctl Help menu 
+        # List the p4rt_ctl Help menu
         for option in self.config_data["help_option"]:
             helpcmd = f"p4rt-ctl {option}"
             log.info(f'To verify command "{helpcmd}"')

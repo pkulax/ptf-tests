@@ -65,7 +65,6 @@ class L3_Wcm_Del_Add(BaseTest):
         self.interface_ip_list = get_interface_ipv4_dict(self.config_data)
 
     def runTest(self):
-
         # Compile p4 file using p4c compiler and generate binary using tdi pipeline builder
         if not test_utils.gen_dep_files_p4c_tdi_pipeline_builder(self.config_data):
             self.result.addFailure(self, sys.exc_info())
@@ -97,7 +96,6 @@ class L3_Wcm_Del_Add(BaseTest):
 
         log.info("***STEP1: Adding the wcm rules***")
         for table in self.config_data["table"]:
-
             log.info(f"Scenario : l3 exact match : {table['description']}")
             log.info(f"Adding {table['description']} rules")
             for match_action in table["match_action"]:
@@ -173,7 +171,6 @@ class L3_Wcm_Del_Add(BaseTest):
         self.dataplane.kill()
 
     def tearDown(self):
-
         for table in self.config_data["table"]:
             log.info(f"Deleting {table['description']} rules")
             for del_action in table["del_action"]:

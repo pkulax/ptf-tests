@@ -43,8 +43,8 @@ from common.utils.config_file_utils import (
 from common.utils.gnmi_ctl_utils import (
     gnmi_ctl_set_and_verify,
     ip_set_ipv4,
-   
 )
+
 
 class DPDK_Flow_Dump_with_del_add(BaseTest):
     def setUp(self):
@@ -86,7 +86,6 @@ class DPDK_Flow_Dump_with_del_add(BaseTest):
 
         # Add rules for l3_exact match
         for table in self.config_data["table"]:
-
             log.info(f"Scenario : l3 exact match : {table['description']}")
             log.info(f"Adding {table['description']} rules")
             for match_action in table["match_action"]:
@@ -95,45 +94,46 @@ class DPDK_Flow_Dump_with_del_add(BaseTest):
                 ):
                     self.result.addFailure(self, sys.exc_info())
                     self.fail(f"Failed to add table entry {match_action}")
-      
+
         # Get dump entries table
-        dump_table = p4rt_ctl.p4rt_ctl_dump_entities(self.config_data['switch'])
+        dump_table = p4rt_ctl.p4rt_ctl_dump_entities(self.config_data["switch"])
         # Verify each entry
         if len(dump_table[1:-1]) != len(self.config_data["flow_dump_table"]):
-            log.failed(f"The table {dump_table[1:-1]} has different entry than definition")
+            log.failed(
+                f"The table {dump_table[1:-1]} has different entry than definition"
+            )
             self.result.addFailure(self, sys.exc_info())
-            self.fail(f"Failed to verify flow dump entries\"")
+            self.fail(f'Failed to verify flow dump entries"')
         else:
             for each in dump_table[1:-1]:
                 entry = each.strip()
                 if entry in self.config_data["flow_dump_table"]:
-                    log.passed(f"The entry \"{entry}\" in flow dump is verified")
+                    log.passed(f'The entry "{entry}" in flow dump is verified')
                 else:
-                    log.failed(f"The entry \"{entry}\" in flow dump is not verified")
+                    log.failed(f'The entry "{entry}" in flow dump is not verified')
                     self.result.addFailure(self, sys.exc_info())
-                    self.fail(f"Failed to verify entry \"{entry}\"")
-                    
-        # Delete entry 
-        log.info("Delete table entry and then verify flow dump")      
+                    self.fail(f'Failed to verify entry "{entry}"')
+
+        # Delete entry
+        log.info("Delete table entry and then verify flow dump")
         for table in self.config_data["table"]:
             log.info(f"Deleting {table['description']} rules")
             for del_action in table["del_action"]:
                 p4rt_ctl.p4rt_ctl_del_entry(table["switch"], table["name"], del_action)
-        
-        log.info("Verify flow dump table after deleting rules")       
-        dump_table = p4rt_ctl.p4rt_ctl_dump_entities(self.config_data['switch'])
-        if (len(dump_table[1:-1])) != 0 :
+
+        log.info("Verify flow dump table after deleting rules")
+        dump_table = p4rt_ctl.p4rt_ctl_dump_entities(self.config_data["switch"])
+        if (len(dump_table[1:-1])) != 0:
             log.info("The table is {dump_table[1:-1])} after deletion")
             log.failed(f"The table it not emty after entry deletion")
             self.result.addFailure(self, sys.exc_info())
-            self.fail(f"Failed to verify \"{dump_table[1:-1]}\" after deletion")
+            self.fail(f'Failed to verify "{dump_table[1:-1]}" after deletion')
         else:
-           log.passed("No entry found in flow table after deletion")
-           
+            log.passed("No entry found in flow table after deletion")
+
         # Add back rules for l3_exact match
         log.info("Add back rules for l3_exact match")
         for table in self.config_data["table"]:
-
             log.info(f"Scenario : l3 exact match : {table['description']}")
             log.info(f"Adding {table['description']} rules")
             for match_action in table["match_action"]:
@@ -142,22 +142,24 @@ class DPDK_Flow_Dump_with_del_add(BaseTest):
                 ):
                     self.result.addFailure(self, sys.exc_info())
                     self.fail(f"Failed to add table entry {match_action}")
-        
+
         log.info("Verify flow dump table after adding back rules")
-        # Verify each entry        
-        dump_table = p4rt_ctl.p4rt_ctl_dump_entities(self.config_data['switch'])
+        # Verify each entry
+        dump_table = p4rt_ctl.p4rt_ctl_dump_entities(self.config_data["switch"])
         if len(dump_table[1:-1]) != len(self.config_data["flow_dump_table"]):
             self.result.addFailure(self, sys.exc_info())
-            self.fail(f"The table {dump_table[1:-1]} has different number entry than definition")
+            self.fail(
+                f"The table {dump_table[1:-1]} has different number entry than definition"
+            )
         else:
             for each in dump_table[1:-1]:
                 entry = each.strip()
                 if entry in self.config_data["flow_dump_table"]:
-                    log.passed(f"The entry \"{entry}\" in flow dump is verified")
+                    log.passed(f'The entry "{entry}" in flow dump is verified')
                 else:
                     self.result.addFailure(self, sys.exc_info())
-                    self.fail(f"Failed to verify entry \"{entry}\"")
-         
+                    self.fail(f'Failed to verify entry "{entry}"')
+
     def tearDown(self):
         # Deleting rules
         for table in self.config_data["table"]:

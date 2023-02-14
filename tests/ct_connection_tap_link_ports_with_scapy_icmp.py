@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-DPDK Connection Tracking with Link and Tap Ports Delete and Add Rules 
+DPDK Connection Tracking with Tap and Link Ports with icmp 
 """
 
 # in-built module imports
@@ -37,8 +37,8 @@ from scapy.fields import *
 from scapy.all import *
 
 # framework related imports
-import common.utils.p4rtctl_utils as p4rt_ctl
 import common.utils.log as log
+import common.utils.p4rtctl_utils as p4rt_ctl
 import common.utils.test_utils as test_utils
 from common.utils.config_file_utils import (
     get_config_dict,
@@ -76,6 +76,7 @@ class Connection_Track(BaseTest):
         ):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to generate P4C artifacts or pb.bin")
+
         # Create ports using gnmi ctl
         if not gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
@@ -91,6 +92,7 @@ class Connection_Track(BaseTest):
         for port_id, ifname in config["port_map"].items():
             device, port = port_id
             self.dataplane.port_add(ifname, device, port)
+
         # Set pipe for adding the rules
         if not p4rt_ctl.p4rt_ctl_set_pipe(
             self.config_data["switch"],
@@ -121,21 +123,17 @@ class Connection_Track(BaseTest):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to add table entry {match_action}")
 
-        # Sleep 5 Sec before tcp connection establishment
+        # Sleep 5 Sec before udp connection establishment
         time.sleep(5)
 
-        # send syn packet before Deleting Rules
-        log.info("------------------------------------------------------------")
-        log.info("Scenario : Connection should Establish before Deleting Rules")
-        log.info("------------------------------------------------------------")
-        log.info("sending SYN packet: A->B")
-        pkt = simple_tcp_packet(
+        # send icmp packet A->B
+        log.info("Scenario : Connection Establishment")
+        log.info("sending icmp packet: A->B")
+        pkt = simple_icmp_packet(
             eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
             eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
             ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
             ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
-            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
-            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
         )
         send_packet(self, port_ids[self.config_data["traffic"]["send_port"][0]], pkt)
         try:
@@ -145,92 +143,39 @@ class Connection_Track(BaseTest):
                 device_number=1,
                 ports=[port_ids[self.config_data["traffic"]["receive_port"][0]][1]],
             )
-            log.passed(f" Verification of packets passed, Syn packet received")
+            log.passed(
+                f" Verification of icmp packets A->B passed, icmp packet received"
+            )
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
-            log.failed(f" Verification of Syn packet sent failed with exception {err}")
+            log.failed(f" Verification of icmp packet sent failed with exception {err}")
 
-        # Deleting Added Rules
-        for table in self.config_data["table"]:
-            log.info(f"Deleting {table['description']} rules")
-            for del_action in table["del_action"]:
-                p4rt_ctl.p4rt_ctl_del_entry(table["switch"], table["name"], del_action)
-
-        # send syn packet after deleting Rules
-        log.info("----------------------------------------------------------------")
-        log.info("Scenario : Connection should not Establish after deleting Rules")
-        log.info("---------------------------------------------------------------")
-        log.info("sending SYN packet: A->B")
-        pkt = simple_tcp_packet(
-            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
-            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
-            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
-            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
-            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
-            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
+        # send icmp packet B->A
+        log.info("Sending icmp packet: B->A")
+        pkt = simple_icmp_packet(
+            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
+            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
+            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
+            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
         )
-        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][0]], pkt)
+
+        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][1]], pkt)
         try:
-            verify_no_packet(
-                self, pkt, port_ids[self.config_data["traffic"]["receive_port"][0]][1]
+            verify_packets(
+                self,
+                pkt,
+                device_number=1,
+                ports=[port_ids[self.config_data["traffic"]["receive_port"][1]][1]],
             )
+
             log.passed(
-                f" Verification of data packet check passed : No traffic between A->B"
+                f" Verification of icmp packets B->A passed, icmp packet received"
             )
         except Exception as err:
             self.result.addFailure(self, sys.exc_info())
             log.failed(
-                f" Verification of data packet sent failed with exception {err}: A->B"
+                f" Verification of icmp packet B->A sent failed with exception {err}"
             )
-
-        # Adding deleted rules Back
-        table = self.config_data["table"][0]
-        log.info(f"Rule Creation : {table['description']}")
-        log.info(f"Adding {table['description']} rules")
-        for match_action in table["match_action"]:
-            if not p4rt_ctl.p4rt_ctl_add_entry(
-                table["switch"], table["name"], match_action
-            ):
-                self.result.addFailure(self, sys.exc_info())
-                self.fail(f"Failed to add table entry {match_action}")
-
-        table = self.config_data["table"][1]
-        log.info(f"Rule Creation : {table['description']}")
-        log.info(f"Adding {table['description']} rules")
-        for match_action in table["match_action"]:
-            if not p4rt_ctl.p4rt_ctl_add_entry(
-                table["switch"], table["name"], match_action
-            ):
-                self.result.addFailure(self, sys.exc_info())
-                self.fail(f"Failed to add table entry {match_action}")
-
-        # Sleep 5 Sec before tcp connection establishment
-        # send syn packet after adding rules back
-        time.sleep(5)
-        log.info("--------------------------------------------------------------")
-        log.info("Scenario : Connection should Establish after Adding Rules back")
-        log.info("--------------------------------------------------------------")
-        log.info("sending SYN packet: A->B")
-        pkt = simple_tcp_packet(
-            eth_src=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][0],
-            eth_dst=self.config_data["traffic"]["in_pkt_header"]["eth_mac"][1],
-            ip_src=self.config_data["traffic"]["in_pkt_header"]["ip_address"][0],
-            ip_dst=self.config_data["traffic"]["in_pkt_header"]["ip_address"][1],
-            tcp_sport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][0],
-            tcp_dport=self.config_data["traffic"]["in_pkt_header"]["tcp_port"][1],
-        )
-        send_packet(self, port_ids[self.config_data["traffic"]["send_port"][0]], pkt)
-        try:
-            verify_packets(
-                self,
-                pkt,
-                device_number=1,
-                ports=[port_ids[self.config_data["traffic"]["receive_port"][0]][1]],
-            )
-            log.passed(f" Verification of packets passed, Syn packet received")
-        except Exception as err:
-            self.result.addFailure(self, sys.exc_info())
-            log.failed(f" Verification of Syn packet sent failed with exception {err}")
 
         self.dataplane.kill()
 

@@ -81,12 +81,13 @@ class LNT_FRR_with_ECMP_Hotplug_netperf(BaseTest):
         self.conn_obj_list = []
 
     def runTest(self):
-        # Prepare to start FRR service. 
+        # Prepare to start FRR service.
         log.info(f"Begin to verify if frr is intalled and running")
-        if not test_utils.run_frr_service('stop'):
+        if not test_utils.run_frr_service("stop"):
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed to stop frr service on local host")
-        if not test_utils.run_frr_service('stop',
+        if not test_utils.run_frr_service(
+            "stop",
             remote=True,
             hostname=self.config_data["client_hostname"],
             username=self.config_data["client_username"],
@@ -97,10 +98,11 @@ class LNT_FRR_with_ECMP_Hotplug_netperf(BaseTest):
                 f"Failed to stop frr service on {self.config_data['client_hostname']}"
             )
         time.sleep(5)
-        if not test_utils.run_frr_service('start'):
+        if not test_utils.run_frr_service("start"):
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed to start frr service on local host")
-        if not test_utils.run_frr_service('start',
+        if not test_utils.run_frr_service(
+            "start",
             remote=True,
             hostname=self.config_data["client_hostname"],
             username=self.config_data["client_username"],
@@ -290,7 +292,6 @@ class LNT_FRR_with_ECMP_Hotplug_netperf(BaseTest):
             self.config_data["vxlan"]["tep_ip"][1].split("/")[0],
             self.config_data["vxlan"]["dst_port"][0],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"Failed to add vxlan {self.config_data['vxlan']['vxlan_name'][0]} to bridge {self.config_data['bridge']}"
@@ -344,7 +345,6 @@ class LNT_FRR_with_ECMP_Hotplug_netperf(BaseTest):
             username=self.config_data["client_username"],
             passwd=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"FAIL:Failed to add bridge {self.config_data['bridge']} to \
@@ -359,7 +359,6 @@ class LNT_FRR_with_ECMP_Hotplug_netperf(BaseTest):
             username=self.config_data["client_username"],
             password=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"FAIL:Failed to bring up {self.config_data['bridge']}")
 
@@ -376,7 +375,6 @@ class LNT_FRR_with_ECMP_Hotplug_netperf(BaseTest):
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
-
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(
                     f"FAIL: Failed to add VM namesapce {namespace['name']} on on {self.config_data['client_hostname']}"
@@ -390,7 +388,6 @@ class LNT_FRR_with_ECMP_Hotplug_netperf(BaseTest):
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
-
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(
                     f"FAIL: Failed to add port {namespace['peer_name']} to bridge {self.config_data['bridge']}"
@@ -412,7 +409,6 @@ class LNT_FRR_with_ECMP_Hotplug_netperf(BaseTest):
             username=self.config_data["client_username"],
             password=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"FAIL: Failed to add vxlan {self.config_data['vxlan']['vxlan_name'][0]} to \
@@ -547,7 +543,6 @@ class LNT_FRR_with_ECMP_Hotplug_netperf(BaseTest):
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
-
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(
                     f"FAIL: failed change mtu for {namespace['veth_if']} on {namespace['name']}"
@@ -563,37 +558,42 @@ class LNT_FRR_with_ECMP_Hotplug_netperf(BaseTest):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"FAIL: failed to start netserver on {namespace['name']}")
 
-        # Check local host bgp route 
-        log.info("Chek if bgp route is built on local host") 
-        m, j = 15,0
+        # Check local host bgp route
+        log.info("Chek if bgp route is built on local host")
+        m, j = 15, 0
         while j <= m:
             if not test_utils.check_bgp_route():
                 time.sleep(12)
-                j +=1
+                j += 1
             else:
                 break
         if j > m:
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"FAIL: bgp route is not built on locahost after {j} tries")
-            
+
         # Check remote host bgp route
-        log.info(f"Chek if bgp route is built on remote host {self.config_data['client_hostname']}") 
-        m, j = 15,0
+        log.info(
+            f"Chek if bgp route is built on remote host {self.config_data['client_hostname']}"
+        )
+        m, j = 15, 0
         while j <= m:
-            if not test_utils.check_bgp_route( remote=True,
+            if not test_utils.check_bgp_route(
+                remote=True,
                 hostname=self.config_data["client_hostname"],
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
                 time.sleep(12)
-                j +=1
+                j += 1
             else:
                 break
-            
+
         if j > m:
             self.result.addFailure(self, sys.exc_info())
-            self.fail(f"FAIL: bgp route is not built on remote {self.config_data['client_hostname']} afer {j} tries")
-            
+            self.fail(
+                f"FAIL: bgp route is not built on remote {self.config_data['client_hostname']} afer {j} tries"
+            )
+
         # Execute underlay ping
         log.info(f"Execute ping test to verify underlay network")
         # Ping remote tep from local
@@ -789,7 +789,6 @@ class LNT_FRR_with_ECMP_Hotplug_netperf(BaseTest):
             conn.close()
 
     def tearDown(self):
-
         log.info("Unconfiguration on local host")
         log.info(f"Delete p4 match action rules on local host")
         for table in self.config_data["table"]:
@@ -834,7 +833,6 @@ class LNT_FRR_with_ECMP_Hotplug_netperf(BaseTest):
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
-
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(
                     f"Failed to delete VM namesapce {namespace['name']} on {self.config_data['client_hostname']}"
@@ -882,12 +880,13 @@ class LNT_FRR_with_ECMP_Hotplug_netperf(BaseTest):
         # Clean up frr configuration
         log.info("Clean up frr configuration")
         # Restart local frr service
-        if not test_utils.run_frr_service('stop'):
+        if not test_utils.run_frr_service("stop"):
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed to restart frr service on local host")
 
         # Restart remote frr service
-        if not test_utils.run_frr_service('start',
+        if not test_utils.run_frr_service(
+            "start",
             remote=True,
             hostname=self.config_data["client_hostname"],
             username=self.config_data["client_username"],

@@ -102,7 +102,6 @@ class L3_Exact_Match(BaseTest):
 
         # Add rules for l3_exact match
         for table in self.config_data["table"]:
-
             log.info(f"Scenario : l3 exact match : {table['description']}")
             log.info(f"Adding {table['description']} rules")
             for match_action in table["match_action"]:
@@ -279,7 +278,6 @@ class L3_Exact_Match(BaseTest):
             # Record port counter after sending traffic
             send_cont_2 = gnmi_get_params_counter(self.gnmictl_params[send_port_id])
             if not send_cont_2:
-
                 self.result.addFailure(self, sys.exc_info())
                 log.failed(
                     f"unable to get counter of {self.config_data['port'][receive_port_id]['name']}"

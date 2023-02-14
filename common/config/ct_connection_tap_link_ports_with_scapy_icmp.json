@@ -24,12 +24,15 @@
   ],
   "table": [ 
   {
-  "description": "tcp_ct_state_table",
+  "description": "icmp_ct_state_table",
   "switch": "br0",
-  "name": "MainControlImpl.tcp_ct_state_table",
+  "name": "MainControlImpl.icmp_ct_state_table",
   "type": "entry",
   "match_action": [
-  "meta.dir=0x01,meta.tcpFlagsSet=0x02,meta.currentState=0x01,action=MainControlImpl.tcp_ct_syn_recv"  
+  "meta.dir=0x00,meta.currentState=0x00,action=MainControlImpl.icmp_ct_unreplied",
+  "meta.dir=0x01,meta.currentState=0x11,action=MainControlImpl.icmp_ct_replied",
+  "meta.dir=0x01,meta.currentState=0x12,action=MainControlImpl.icmp_ct_ignore",
+  "meta.dir=0x00,meta.currentState=0x12,action=MainControlImpl.icmp_ct_ignore"
   ]
   },
   {
@@ -46,15 +49,12 @@
 
   "traffic": 
   {
-  "type": "tcp",
+  "type": "icmp",
   "send_port": [0, 1],
   "receive_port": [1, 0],
   "in_pkt_header": {
   "eth_mac": ["00:00:01:00:00:01","00:00:02:00:00:01"],
-  "ip_address" : ["10.10.10.10","20.20.20.10"],
-  "tcp_port" : [10001, 20001],
-  "flags" : ["SA", "A", "F", "FA", "R"]
-  
+  "ip_address" : ["10.10.10.10","20.20.20.10"]
   },
   "out_pkt_header": []
   }

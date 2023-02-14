@@ -207,7 +207,7 @@ class Dpdk_Link_Flapping(BaseTest):
         log.passed(
             f"Ping successful to destination {self.config_data['port'][1]['remote_ip']}"
         )
-    
+
         # Now bring PHY interface down for flapping
         log.info("-----------------------------------------")
         log.info("Bring PHY1 interface down for flapping...")
@@ -233,7 +233,7 @@ class Dpdk_Link_Flapping(BaseTest):
         portconfig_obj.Ip.iplink_enable_disable_link(
             phy_interface1, status_to_change="up"
         )
-     
+
         time.sleep(1)
         # Now Add neighbour entry
         log.info("Add neigh entry on  PHY1 interface...")
@@ -243,7 +243,7 @@ class Dpdk_Link_Flapping(BaseTest):
             self.config_data["port"][1]["remote_ip"],
             self.config_data["port"][1]["mac_local"],
         )
-        
+
         # ping test between VM to link port after up the port
         time.sleep(1)
         log.info("----------------------------------------------------------------")
@@ -252,7 +252,7 @@ class Dpdk_Link_Flapping(BaseTest):
         result = test_utils.vm_to_vm_ping_test(
             self.conn_obj_list[0], self.config_data["vm"][0]["remote_ip"]
         )
-      
+
         if not result:
             self.result.addFailure(self, sys.exc_info())
             self.fail("FAIL: Ping test failed for VM0")

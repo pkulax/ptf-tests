@@ -81,7 +81,6 @@ def p4rt_ctl_del_entry(bridge, tbl_name, match_key):
 
 
 def p4rt_ctl_add_member(bridge, tbl_name, member_details):
-
     """
     add-member SWITCH TABLE MEMBER_DETAILS
     Example:
@@ -101,7 +100,6 @@ def p4rt_ctl_add_member(bridge, tbl_name, member_details):
 
 
 def p4rt_ctl_add_member_and_verify(bridge, tbl_name, member_details):
-
     """
     add-member SWITCH TABLE MEMBER_DETAILS
     Example:
@@ -387,6 +385,7 @@ def p4rt_ctl_reset_counter_entry(bridge, cnt_tbl_name, flow):
     """
     p4rt_ctl.p4ctl_reset_counter_entry(bridge, cnt_tbl_name, flow)
 
+
 def p4rt_ctl_dump_entities(bridge):
     """
     A function to capture result of commd "p4rt-ctl dump-entries SWITCH"
@@ -402,7 +401,7 @@ def p4rt_ctl_dump_entities(bridge):
         p4rt_ctl.p4ctl_dump_entries(bridge)
         sys.stdout = save_stdout
         result = output.getvalue().split("\n")
-   
+
         return result
     except Exception as error:
         log.failed(f"p4rt-ctl dump entities Failed with error: {error}")

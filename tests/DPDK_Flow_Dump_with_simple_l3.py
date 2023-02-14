@@ -44,8 +44,8 @@ from common.utils.config_file_utils import (
 from common.utils.gnmi_ctl_utils import (
     gnmi_ctl_set_and_verify,
     ip_set_ipv4,
-   
 )
+
 
 class DPDK_Flow_Dump_with_simple_l3(BaseTest):
     def setUp(self):
@@ -94,26 +94,28 @@ class DPDK_Flow_Dump_with_simple_l3(BaseTest):
                 ):
                     self.result.addFailure(self, sys.exc_info())
                     self.fail(f"Failed to add table entry {match_action}")
-      
+
         # Get dump entries table
         log.info("Get flow dump table")
-        dump_table = p4rt_ctl.p4rt_ctl_dump_entities(self.config_data['switch'])
+        dump_table = p4rt_ctl.p4rt_ctl_dump_entities(self.config_data["switch"])
         # Verify each entry
         log.info("Verify each entry")
         if len(dump_table[1:-1]) != len(self.config_data["flow_dump_table"]):
-            log.failed(f"The table {dump_table[1:-1]} has different entry than definition")
+            log.failed(
+                f"The table {dump_table[1:-1]} has different entry than definition"
+            )
             self.result.addFailure(self, sys.exc_info())
-            self.fail(f"Failed to verify flow dump entries\"")
+            self.fail(f'Failed to verify flow dump entries"')
         else:
             for each in dump_table[1:-1]:
                 entry = each.strip()
                 if entry in self.config_data["flow_dump_table"]:
-                    log.passed(f"The entry \"{entry}\" in flow dump is verified")
+                    log.passed(f'The entry "{entry}" in flow dump is verified')
                 else:
-                    log.failed(f"The entry \"{entry}\" in flow dump is not verified")
+                    log.failed(f'The entry "{entry}" in flow dump is not verified')
                     self.result.addFailure(self, sys.exc_info())
-                    self.fail(f"Failed to verify entry \"{entry}\"")
-         
+                    self.fail(f'Failed to verify entry "{entry}"')
+
     def tearDown(self):
         # Deleting rules
         for table in self.config_data["table"]:

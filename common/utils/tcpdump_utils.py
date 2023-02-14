@@ -101,6 +101,5 @@ def tcpdump_remove_pcap_file(interface):
 
 
 def tcpdump_tear_down():
-
     tcpd = TcpDumpCap()
     tcpd.TCPDUMP.tcpdump_tear_down()

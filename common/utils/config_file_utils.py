@@ -449,7 +449,3 @@ def convert_yaml_to_dict_from_file(yaml_file):
         data = yaml.load(f, Loader=yaml.FullLoader)
 
     return data
-
-
-
-

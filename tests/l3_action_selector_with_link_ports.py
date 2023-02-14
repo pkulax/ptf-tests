@@ -96,7 +96,6 @@ class L3_Action_Selector_Link(BaseTest):
             self.config_data["pb_bin"],
             self.config_data["p4_info"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to set pipe")
 
@@ -172,7 +171,6 @@ class L3_Action_Selector_Link(BaseTest):
         self.dataplane.kill()
 
     def tearDown(self):
-
         table = self.config_data["table"][1]
         # Delete rules
         log.info(f"Deleting rules")

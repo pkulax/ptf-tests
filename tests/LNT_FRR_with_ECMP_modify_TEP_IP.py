@@ -72,17 +72,17 @@ class LNT_FRR_with_ECMP_modify_TEP_IP(BaseTest):
         self.conn_obj_list = []
 
     def runTest(self):
-
         # Create ports using gnmi-ctl
         if not gnmi_ctl_utils.gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure gnmi ctl ports")
 
         # Prepare frr service. "restart" doesn't work well
-        if not test_utils.run_frr_service('stop'):
+        if not test_utils.run_frr_service("stop"):
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed to stop frr service on local host")
-        if not test_utils.run_frr_service('stop',
+        if not test_utils.run_frr_service(
+            "stop",
             remote=True,
             hostname=self.config_data["client_hostname"],
             username=self.config_data["client_username"],
@@ -94,10 +94,11 @@ class LNT_FRR_with_ECMP_modify_TEP_IP(BaseTest):
             )
         time.sleep(5)
         log.info(f"Begin to verify if frr is intalled and running")
-        if not test_utils.run_frr_service('start'):
+        if not test_utils.run_frr_service("start"):
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed to start frr service on local host")
-        if not test_utils.run_frr_service('start',
+        if not test_utils.run_frr_service(
+            "start",
             remote=True,
             hostname=self.config_data["client_hostname"],
             username=self.config_data["client_username"],
@@ -219,7 +220,6 @@ class LNT_FRR_with_ECMP_modify_TEP_IP(BaseTest):
             self.config_data["vxlan"]["tep_ip"][1].split("/")[0],
             self.config_data["vxlan"]["dst_port"][0],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"Failed to add vxlan {self.config_data['vxlan']['vxlan_name'][0]} to bridge {self.config_data['bridge']}"
@@ -272,7 +272,6 @@ class LNT_FRR_with_ECMP_modify_TEP_IP(BaseTest):
             username=self.config_data["client_username"],
             passwd=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"Failed to add bridge {self.config_data['bridge']} to \
@@ -287,7 +286,6 @@ class LNT_FRR_with_ECMP_modify_TEP_IP(BaseTest):
             username=self.config_data["client_username"],
             password=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed to bring up {self.config_data['bridge']}")
 
@@ -303,7 +301,6 @@ class LNT_FRR_with_ECMP_modify_TEP_IP(BaseTest):
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
-
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(
                     f"Failed to add VM namesapce {namespace['name']} on on {self.config_data['client_hostname']}"
@@ -317,7 +314,6 @@ class LNT_FRR_with_ECMP_modify_TEP_IP(BaseTest):
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
-
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(
                     f"Failed to add port {namespace['peer_name']} to bridge {self.config_data['bridge']}"
@@ -338,7 +334,6 @@ class LNT_FRR_with_ECMP_modify_TEP_IP(BaseTest):
             username=self.config_data["client_username"],
             password=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"Failed to add vxlan {self.config_data['vxlan']['vxlan_name'][0]} to \
@@ -401,37 +396,42 @@ class LNT_FRR_with_ECMP_modify_TEP_IP(BaseTest):
                 self.fail(
                     f"Failed to config Bgp on {self.config_data['client_hostname']}"
                 )
-                
-        # Check local host bgp route 
-        log.info("Chek if bgp route is built on local host") 
-        m, j = 10,0
+
+        # Check local host bgp route
+        log.info("Chek if bgp route is built on local host")
+        m, j = 10, 0
         while j <= m:
             if not test_utils.check_bgp_route():
                 time.sleep(12)
-                j +=1
+                j += 1
             else:
                 break
         if j > m:
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"FAIL: bgp route is not built on locahost after {j} tries")
-            
+
         # Check remote host bgp route
-        log.info(f"Chek if bgp route is built on remote host {self.config_data['client_hostname']}") 
-        m, j = 10,0
+        log.info(
+            f"Chek if bgp route is built on remote host {self.config_data['client_hostname']}"
+        )
+        m, j = 10, 0
         while j <= m:
-            if not test_utils.check_bgp_route( remote=True,
+            if not test_utils.check_bgp_route(
+                remote=True,
                 hostname=self.config_data["client_hostname"],
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
                 time.sleep(12)
-                j +=1
+                j += 1
             else:
                 break
-            
+
         if j > m:
             self.result.addFailure(self, sys.exc_info())
-            self.fail(f"FAIL: bgp route is not built on remote {self.config_data['client_hostname']} afer {j} tries")
+            self.fail(
+                f"FAIL: bgp route is not built on remote {self.config_data['client_hostname']} afer {j} tries"
+            )
 
         # Sleep for system ready to send traffic
         log.info("Sleep before sending ping traffic")
@@ -507,7 +507,6 @@ class LNT_FRR_with_ECMP_modify_TEP_IP(BaseTest):
                 network=self.config_data["vxlan"]["new_tep_ip"][0],
                 router_id=self.config_data["vxlan"]["new_tep_ip"][0].split("/")[0],
             ):
-
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed to config Bgp on localhost")
 
@@ -534,7 +533,6 @@ class LNT_FRR_with_ECMP_modify_TEP_IP(BaseTest):
             self.config_data["vxlan"]["new_tep_ip"][1].split("/")[0],
             self.config_data["vxlan"]["dst_port"][0],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"Failed to add vxlan {self.config_data['vxlan']['vxlan_name'][0]} from \
@@ -603,7 +601,6 @@ class LNT_FRR_with_ECMP_modify_TEP_IP(BaseTest):
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
-
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(
                     f"Failed to config Bgp on {self.config_data['client_hostname']}"
@@ -621,7 +618,6 @@ class LNT_FRR_with_ECMP_modify_TEP_IP(BaseTest):
             username=self.config_data["client_username"],
             password=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"Failed to delete vxlan {self.config_data['vxlan']['vxlan_name'][0]} from \
@@ -642,44 +638,48 @@ class LNT_FRR_with_ECMP_modify_TEP_IP(BaseTest):
             username=self.config_data["client_username"],
             password=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"FAIL: Failed to add vxlan {self.config_data['vxlan']['vxlan_name'][0]} to \
                          bridge {self.config_data['bridge']} on on {self.config_data['client_hostname']}"
             )
-            
-        # Check local host bgp route 
-        log.info("Chek if bgp route is built on local host") 
-        m, j = 15,0
+
+        # Check local host bgp route
+        log.info("Chek if bgp route is built on local host")
+        m, j = 15, 0
         while j <= m:
             if not test_utils.check_bgp_route():
                 time.sleep(12)
-                j +=1
+                j += 1
             else:
                 break
         if j > m:
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"FAIL: bgp route is not built on locahost after {j} tries")
-            
+
         # Check remote host bgp route
-        log.info(f"Chek if bgp route is built on remote host {self.config_data['client_hostname']}") 
-        m, j = 15,0
+        log.info(
+            f"Chek if bgp route is built on remote host {self.config_data['client_hostname']}"
+        )
+        m, j = 15, 0
         while j <= m:
-            if not test_utils.check_bgp_route( remote=True,
+            if not test_utils.check_bgp_route(
+                remote=True,
                 hostname=self.config_data["client_hostname"],
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
                 time.sleep(12)
-                j +=1
+                j += 1
             else:
                 break
-            
+
         if j > m:
             self.result.addFailure(self, sys.exc_info())
-            self.fail(f"FAIL: bgp route is not built on remote {self.config_data['client_hostname']} afer {j} tries")
-            
+            self.fail(
+                f"FAIL: bgp route is not built on remote {self.config_data['client_hostname']} afer {j} tries"
+            )
+
         # Execute underlay ping with new TEP
         log.info(f"Ping test for underlay network with new TEP")
         # ping remote TAP
@@ -793,7 +793,6 @@ class LNT_FRR_with_ECMP_modify_TEP_IP(BaseTest):
             conn.close()
 
     def tearDown(self):
-
         log.info("Unconfiguration on local host")
         log.info(f"Delete p4 match action rules on local host")
         # Delete rules
@@ -840,7 +839,6 @@ class LNT_FRR_with_ECMP_modify_TEP_IP(BaseTest):
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
-
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(
                     f"Failed to delete VM namesapce {namespace['name']} on {self.config_data['client_hostname']}"
@@ -888,12 +886,13 @@ class LNT_FRR_with_ECMP_modify_TEP_IP(BaseTest):
         # Clean up frr service
         log.info("clean up frr configuration")
         # Restart local frr service
-        if not test_utils.run_frr_service('stop'):
+        if not test_utils.run_frr_service("stop"):
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed to stop frr service on local host")
 
         # Restart remote frr service
-        if not test_utils.run_frr_service('stop',
+        if not test_utils.run_frr_service(
+            "stop",
             remote=True,
             hostname=self.config_data["client_hostname"],
             username=self.config_data["client_username"],
