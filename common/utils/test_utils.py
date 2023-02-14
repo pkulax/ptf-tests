@@ -1258,19 +1258,25 @@ def vtysh_config_frr_bgp_attr(
     """
     BGP_AS_UPLIMIT = 4294967295
     log.info("Configure BGP attributes")
+    PROMPT = ['# ','>>> ','> ','\$ ']
     if hostname and username and password:
         remote = f"{username}@{hostname}"
         config = pexpect.spawn("ssh " + remote)
-        config.expect("password:")
+        ssh_newkey = 'Are you sure you want to continue connecting'
+        ret = config.expect([pexpect.TIMEOUT, ssh_newkey, '[P|p]assword:'])
+        if ret == 0:
+                log.failed("Error Connecting")
+                return
+        if ret == 1:
+                config.sendline('yes')
+                ret = config.expect([pexpect.TIMEOUT, '[P|p]assword:'])
+                if ret == 0:
+                        log.failed("ERROR Connecting")
+                        return
         config.sendline(password)
-        i = config.expect(["Permission denied", "[~#\]\$]"])
-        if i == 0:
-            log.info(f"Permission denied by {hostname}. Unable to login")
-            config.kill(0)
-        elif i == 1:
-            log.info("Connected Successfully.")
-            config.sendline("vtysh")
-            config.expect("#")
+        config.expect(PROMPT)
+        config.sendline("vtysh")
+        config.expect(PROMPT) 
     else:
         config = pexpect.spawn("vtysh")
         config.expect("#")
@@ -1318,22 +1324,28 @@ def vtysh_config_frr_delete_bgp(asnumber, hostname="", username="", password="")
     Returns: boolean True or False
     """
     log.info("Delete router interface")
+    PROMPT = ['# ','>>> ','> ','\$ ']
     if hostname and username and password:
         remote = f"{username}@{hostname}"
         config = pexpect.spawn("ssh " + remote)
-        config.expect("password:")
+        ssh_newkey = 'Are you sure you want to continue connecting'
+        ret = config.expect([pexpect.TIMEOUT, ssh_newkey, '[P|p]assword:'])
+        if ret == 0:
+                log.failed("Error Connecting")
+                return
+        if ret == 1:
+                config.sendline('yes')
+                ret = config.expect([pexpect.TIMEOUT, '[P|p]assword:'])
+                if ret == 0:
+                        log.failed("ERROR Connecting")
+                        return
         config.sendline(password)
-        i = config.expect(["Permission denied", "[~#\]\$]"])
-        if i == 0:
-            log.info("Permission denied by {hostname}. Unable to login")
-            config.kill(0)
-        elif i == 1:
-            log.info(f"Connected Successfully to {hostname}")
-            config.sendline("vtysh")
-            config.expect("#")
+        config.expect(PROMPT)
+        config.sendline("vtysh")
+        config.expect(PROMPT) 
     else:
         config = pexpect.spawn("vtysh")
-        config.expect("#")
+        config.expect(PROMPT)
     try:
         cmd = f"no router bgp {asnumber}"
         config.sendline("config t")
@@ -1365,22 +1377,28 @@ def vtysh_config_frr_router_interface(
     Returns: boolean True or False
     """
     log.info("configure router interface")
+    PROMPT = ['# ','>>> ','> ','\$ ']
     if hostname and username and password:
         remote = f"{username}@{hostname}"
         config = pexpect.spawn("ssh " + remote)
-        config.expect("password:")
+        ssh_newkey = 'Are you sure you want to continue connecting'
+        ret = config.expect([pexpect.TIMEOUT, ssh_newkey, '[P|p]assword:'])
+        if ret == 0:
+                log.failed("Error Connecting")
+                return
+        if ret == 1:
+                config.sendline('yes')
+                ret = config.expect([pexpect.TIMEOUT, '[P|p]assword:'])
+                if ret == 0:
+                        log.failed("ERROR Connecting")
+                        return
         config.sendline(password)
-        i = config.expect(["Permission denied", "[~#\]\$]"])
-        if i == 0:
-            log.info(f"Permission denied by {hostname}. Unable to login")
-            config.kill(0)
-        elif i == 1:
-            log.info(f"Connected Successfully to {hostname}")
-            config.sendline("vtysh")
-            config.expect("#")
+        config.expect(PROMPT)
+        config.sendline("vtysh")
+        config.expect(PROMPT) 
     else:
         config = pexpect.spawn("vtysh")
-        config.expect("#")
+        config.expect(PROMPT)
     try:
         if not interface:
             log.failed("an interface must be provided")
