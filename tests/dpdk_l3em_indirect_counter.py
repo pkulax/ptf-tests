@@ -58,7 +58,6 @@ class IPDK_L3EM_INDIRECT_COUNTER(BaseTest):
         self.gnmictl_params = get_gnmi_params_simple(self.config_data)
 
     def runTest(self):
-
         # Create Ports using gnmictl
         if not gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
@@ -72,7 +71,6 @@ class IPDK_L3EM_INDIRECT_COUNTER(BaseTest):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail("Failed to generate P4C artifacts or pb.bin")
         elif self.config_data["p4arctype"] == "psa":
-
             if not test_utils.gen_dep_files_p4c_tdi_pipeline_builder(self.config_data):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail("Failed to generate P4C artifacts or pb.bin")
@@ -244,7 +242,6 @@ class IPDK_L3EM_INDIRECT_COUNTER(BaseTest):
             conn.close()
 
     def tearDown(self):
-
         log.info("delete table entries")
         for table in self.config_data["table"]:
             log.info(f"Deleting {table['description']} rules")

@@ -147,6 +147,7 @@ def gen_dep_files_p4c_dpdk_pna_tdi_pipeline_builder(config_data):
 
     return True
 
+
 def qemu_version(ver="6.1.0"):
     """
     To Add/Del same Hotplug mutiple times need to check qemu version >= 6.1.0.
@@ -518,13 +519,13 @@ def ovs_add_ctrl_port_to_bridge(bridge, port_list, p4_device_id):
         ovs-vsctl add-port br1 TAP0
     """
     ovs = Ovs(get_connection_object())
-    
+
     # Add a brigdge
     out, returncode, err = ovs.vsctl.add_br(bridge)
     if returncode:
         log.failed(f"Failed to add bridge {bridge} due to {out} {err}")
         return False
-    
+
     # Add port into ovs bridge
     for port in port_list:
         out, returncode, err = ovs.vsctl.add_port(bridge, port)
@@ -533,6 +534,7 @@ def ovs_add_ctrl_port_to_bridge(bridge, port_list, p4_device_id):
             return False
 
     return True
+
 
 def get_ovs_port_dump(bridge, ctrl_port_list):
     """
@@ -1360,8 +1362,8 @@ def vtysh_config_frr_router_interface(
 
 def restart_frr_service(remote=False, hostname="", username="", password=""):
     """
-    A function to restart frr service by executing "service frr restart"
-    on local or remote host.
+    A function to restart frr service by executing "service stop frr" or "
+    service start frr"on local or remote host.
     Returns: boolean True or False
     """
     if remote:
@@ -1370,28 +1372,77 @@ def restart_frr_service(remote=False, hostname="", username="", password=""):
     else:
         hostname = "local host"
         connection = Local()
-    _, _, err = connection.execute_command("systemctl restart frr")
+
+    cmd = "systemctl restart frr"
+    _, _, err = connection.execute_command(cmd)
 
     if err:
         log.failed("faild to restart frr service")
         connection.tear_down()
         return False
-    log.passed(f'successfuly execute cmd "systemctl restart frr" on {hostname}')
+    log.passed(f"successfuly execute {cmd} on {hostname}")
 
     connection.tear_down()
 
     return True
 
 
-def send_ctrl_c(conn):
+def run_frr_service(action, remote=False, hostname="", username="", password=""):
+    """
+    A function to start/stopfrr service by executing "service stop frr" or "
+    service start frr"on local or remote host.
+    Returns: boolean True or False
+    """
+    if remote:
+        connection = Ssh(hostname=hostname, username=username, passwrd=password)
+        connection.setup_ssh_connection()
+    else:
+        hostname = "local host"
+        connection = Local()
 
+    if action == "start" or action == "stop":
+        cmd = "systemctl " + action + " frr"
+    else:
+        log.failed(f"{action} is not right action to run frr service")
+        return False
+    _, _, err = connection.execute_command(cmd)
+
+    if err:
+        log.failed(f"faild to {action} frr service")
+        connection.tear_down()
+        return False
+    log.passed(f"successfuly execute {cmd} on {hostname}")
+
+    connection.tear_down()
+
+    return True
+
+
+def check_bgp_route(remote=False, hostname="", username="", password=""):
+    """
+    A funtion to check if bgp route is built or not
+    """
+    if remote:
+        connection = Ssh(hostname=hostname, username=username, passwrd=password)
+        connection.setup_ssh_connection()
+    else:
+        hostname = "local host"
+        connection = Local()
+
+    result, _, _ = connection.execute_command("ip route |grep bgp")
+    if result:
+        return True
+
+    return False
+
+
+def send_ctrl_c(conn):
     conn.sendCmd("\x03")
 
     return True
 
 
 def send_ctrl_d(conn):
-
     conn.sendCmd("\x04")
 
     return True
@@ -1564,7 +1615,6 @@ def verify_scapy_traffic_from_vm(vm_id, conn, config_data, traffic_type="unicast
 
 
 def print_scapy_pcap_summary(conn):
-
     cmd_list = [
         "pkt_summary=[]",
         "pkt_summary = [x.summary() for x in packets]",
@@ -1594,7 +1644,7 @@ def create_yaml_file_from_template(pod_name, infile="test_pod_template.yaml"):
     local = Local()
 
     cmd = f'sed "s/{TAG}/{pod_name}/" {infile} > {outfile}'
-    _,returncode,err = local.execute_command(cmd)
+    _, returncode, err = local.execute_command(cmd)
 
     if err or returncode:
         log.failed(f"Failed to create {outfile} from {infile}")

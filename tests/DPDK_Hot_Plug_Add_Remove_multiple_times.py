@@ -48,35 +48,43 @@ from common.utils.config_file_utils import (
     get_gnmi_params_hotplug,
     get_interface_ipv4_dict,
 )
-from common.utils.gnmi_ctl_utils import gnmi_ctl_set_and_verify, gnmi_set_params, ip_set_ipv4
+from common.utils.gnmi_ctl_utils import (
+    gnmi_ctl_set_and_verify,
+    gnmi_set_params,
+    ip_set_ipv4,
+)
 
 
 class Dpdk_Hot_Plug(BaseTest):
-
     def setUp(self):
         BaseTest.setUp(self)
         self.result = unittest.TestResult()
-        config["relax"] = True # for verify_packets to ignore other packets received at the interface
-        
+        config[
+            "relax"
+        ] = True  # for verify_packets to ignore other packets received at the interface
+
         test_params = test_params_get()
-        config_json = test_params['config_json']
+        config_json = test_params["config_json"]
         try:
-            self.vm_cred = test_params['vm_cred']
+            self.vm_cred = test_params["vm_cred"]
         except KeyError:
             self.vm_cred = ""
         self.dataplane = ptf.dataplane_instance
         ptf.dataplane_instance = ptf.dataplane.DataPlane(config)
 
-        self.config_data = get_config_dict(config_json,vm_location_list=test_params['vm_location_list'])
+        self.config_data = get_config_dict(
+            config_json, vm_location_list=test_params["vm_location_list"]
+        )
         log.info(self.config_data)
 
         self.gnmictl_params = get_gnmi_params_simple(self.config_data)
         self.gnmictl_hotplug_params = get_gnmi_params_hotplug(self.config_data)
-        self.gnmictl_hotplug_delete_params = get_gnmi_params_hotplug(self.config_data,action="del")
+        self.gnmictl_hotplug_delete_params = get_gnmi_params_hotplug(
+            self.config_data, action="del"
+        )
         self.interface_ip_list = get_interface_ipv4_dict(self.config_data)
 
     def runTest(self):
-        
         # Checking for qemu version >= 6.1.0
         qemu_ver = test_utils.qemu_version("6.1.0")
         log.info(qemu_ver)
@@ -94,23 +102,33 @@ class Dpdk_Hot_Plug(BaseTest):
 
         log.info("Sleeping for 30 seconds for the vms to come up")
         time.sleep(30)
-   
+
         # create telnet instance for VMs created
-        vm=self.config_data['vm'][0]
-        conn1 = connectionManager(vm['qemu-hotplug-mode']['qemu-socket-ip'],vm['qemu-hotplug-mode']['serial-telnet-port'],vm['vm_username'], password=vm['vm_password'])
-        
-        vm1=self.config_data['vm'][1]
-        conn2 = connectionManager(vm1['qemu-hotplug-mode']['qemu-socket-ip'],vm1['qemu-hotplug-mode']['serial-telnet-port'],vm1['vm_username'], password=vm1['vm_password'])
+        vm = self.config_data["vm"][0]
+        conn1 = connectionManager(
+            vm["qemu-hotplug-mode"]["qemu-socket-ip"],
+            vm["qemu-hotplug-mode"]["serial-telnet-port"],
+            vm["vm_username"],
+            password=vm["vm_password"],
+        )
+
+        vm1 = self.config_data["vm"][1]
+        conn2 = connectionManager(
+            vm1["qemu-hotplug-mode"]["qemu-socket-ip"],
+            vm1["qemu-hotplug-mode"]["serial-telnet-port"],
+            vm1["vm_username"],
+            password=vm1["vm_password"],
+        )
 
         vm1_command_list = ["ip a | egrep \"[0-9]*: \" | cut -d ':' -f 2"]
         result = test_utils.sendCmd_and_recvResult(conn1, vm1_command_list)[0]
         result = result.split("\n")
-        vm1result1 = list(dropwhile(lambda x: 'lo\r' not in x, result))
+        vm1result1 = list(dropwhile(lambda x: "lo\r" not in x, result))
 
         vm2_command_list = ["ip a | egrep \"[0-9]*: \" | cut -d ':' -f 2"]
         result = test_utils.sendCmd_and_recvResult(conn2, vm2_command_list)[0]
         result = result.split("\n")
-        vm2result1 = list(dropwhile(lambda x: 'lo\r' not in x, result))
+        vm2result1 = list(dropwhile(lambda x: "lo\r" not in x, result))
 
         # Creating ports using gnmi-ctl
         if not gnmi_ctl_set_and_verify(self.gnmictl_params):
@@ -119,77 +137,73 @@ class Dpdk_Hot_Plug(BaseTest):
 
         # Setting hotplug params using gnmi-ctl
         for i in range(0, 15):
-             log.info(f"\nIteration: {i}")
-             if not gnmi_ctl_set_and_verify(self.gnmictl_hotplug_params):
-                 self.result.addFailure(self, sys.exc_info())
-                 self.fail("Failed to configure hotplug through gnmi")
-     
-             result = test_utils.sendCmd_and_recvResult(conn1, vm1_command_list)[0]
-             result = result.split("\n")
-             vm1result2 = list(dropwhile(lambda x: 'lo\r' not in x, result))
-      
-             result = test_utils.sendCmd_and_recvResult(conn2, vm2_command_list)[0]
-             result = result.split("\n")
-             vm2result2 = list(dropwhile(lambda x: 'lo\r' not in x, result))
+            log.info(f"\nIteration: {i}")
+            if not gnmi_ctl_set_and_verify(self.gnmictl_hotplug_params):
+                self.result.addFailure(self, sys.exc_info())
+                self.fail("Failed to configure hotplug through gnmi")
 
-             vm1interfaces = list(set(vm1result2) - set(vm1result1))
-             vm1interfaces = [x.strip() for x in vm1interfaces]
+            result = test_utils.sendCmd_and_recvResult(conn1, vm1_command_list)[0]
+            result = result.split("\n")
+            vm1result2 = list(dropwhile(lambda x: "lo\r" not in x, result))
 
-             vm2interfaces = list(set(vm2result2) - set(vm2result1))
-             vm2interfaces = [x.strip() for x in vm2interfaces]
-   
-        
-             if not vm1interfaces:
+            result = test_utils.sendCmd_and_recvResult(conn2, vm2_command_list)[0]
+            result = result.split("\n")
+            vm2result2 = list(dropwhile(lambda x: "lo\r" not in x, result))
+
+            vm1interfaces = list(set(vm1result2) - set(vm1result1))
+            vm1interfaces = [x.strip() for x in vm1interfaces]
+
+            vm2interfaces = list(set(vm2result2) - set(vm2result1))
+            vm2interfaces = [x.strip() for x in vm2interfaces]
+
+            if not vm1interfaces:
                 self.result.addFailure(self, sys.exc_info())
                 self.fail("Fail to add hotplug through gnmi")
-        
-             if not vm2interfaces:
-                 self.result.addFailure(self, sys.exc_info())
-                 self.fail("Fail to add hotplug through gnmi")
 
-             log.passed(f"PASS: Added hotplug interface for vm1 {vm1interfaces}")
-             log.passed(f"PASS: Added hotplug interface for vm2 {vm2interfaces}")
+            if not vm2interfaces:
+                self.result.addFailure(self, sys.exc_info())
+                self.fail("Fail to add hotplug through gnmi")
 
-             # Deleting hotplug params using gnmi-ctl
-             if not gnmi_set_params(self.gnmictl_hotplug_delete_params):
-                 self.result.addFailure(self, sys.exc_info())
-                 self.fail("Failed to remove hotplug through gnmi")
+            log.passed(f"PASS: Added hotplug interface for vm1 {vm1interfaces}")
+            log.passed(f"PASS: Added hotplug interface for vm2 {vm2interfaces}")
 
-             result = test_utils.sendCmd_and_recvResult(conn1, vm1_command_list)[0]
-             result = result.split("\n")
-             vm1result2 = list(dropwhile(lambda x: 'lo\r' not in x, result))
+            # Deleting hotplug params using gnmi-ctl
+            if not gnmi_set_params(self.gnmictl_hotplug_delete_params):
+                self.result.addFailure(self, sys.exc_info())
+                self.fail("Failed to remove hotplug through gnmi")
 
-             result1 = test_utils.sendCmd_and_recvResult(conn2, vm2_command_list)[0]
-             result1 = result1.split("\n")
-             vm2result2 = list(dropwhile(lambda x: 'lo\r' not in x, result1))
+            result = test_utils.sendCmd_and_recvResult(conn1, vm1_command_list)[0]
+            result = result.split("\n")
+            vm1result2 = list(dropwhile(lambda x: "lo\r" not in x, result))
 
+            result1 = test_utils.sendCmd_and_recvResult(conn2, vm2_command_list)[0]
+            result1 = result1.split("\n")
+            vm2result2 = list(dropwhile(lambda x: "lo\r" not in x, result1))
 
-             vm1interfaces2 = list(set(vm1result2) - set(vm1result1))
-             vm1interfaces2 = [x.strip() for x in vm1interfaces2]
+            vm1interfaces2 = list(set(vm1result2) - set(vm1result1))
+            vm1interfaces2 = [x.strip() for x in vm1interfaces2]
 
-             if  vm1interfaces2:
-                  self.result.addFailure(self, sys.exc_info())
-                  self.fail("Fail to del hotplug through gnmi")
-        
-             vm2interfaces2 = list(set(vm2result2) - set(vm2result1))
-             vm2interfaces2 = [x.strip() for x in vm2interfaces2]
+            if vm1interfaces2:
+                self.result.addFailure(self, sys.exc_info())
+                self.fail("Fail to del hotplug through gnmi")
 
-             if  vm2interfaces2:
-                  self.result.addFailure(self, sys.exc_info())
-                  self.fail("Fail to del hotplug through gnmi")
+            vm2interfaces2 = list(set(vm2result2) - set(vm2result1))
+            vm2interfaces2 = [x.strip() for x in vm2interfaces2]
 
-             log.passed(f"PASS: Deleted hotplug interface from vm1 {vm1interfaces}")
-             log.passed(f"PASS: Deleted hotplug interface from vm2 {vm2interfaces}")
-   
+            if vm2interfaces2:
+                self.result.addFailure(self, sys.exc_info())
+                self.fail("Fail to del hotplug through gnmi")
+
+            log.passed(f"PASS: Deleted hotplug interface from vm1 {vm1interfaces}")
+            log.passed(f"PASS: Deleted hotplug interface from vm2 {vm2interfaces}")
+
         conn1.close()
         conn2.close()
 
         self.dataplane.kill()
-
 
     def tearDown(self):
         if self.result.wasSuccessful():
             log.passed("Test has PASSED")
         else:
             self.fail("Test has FAILED")
-

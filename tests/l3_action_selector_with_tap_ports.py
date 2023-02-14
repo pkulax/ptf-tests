@@ -257,7 +257,6 @@ class L3_Action_Selector(BaseTest):
         # verify whether traffic hits group-2
         iteration = 1
         for src in self.config_data["traffic"]["in_pkt_header"]["ip_src"]:
-
             send_port_id = self.config_data["traffic"]["send_port"][1]
             if iteration == 1:
                 receive_port_id = self.config_data["traffic"]["receive_port"][1]
@@ -457,7 +456,6 @@ class L3_Action_Selector(BaseTest):
         if group_count == 3:
             iteration = 1
             for src in self.config_data["traffic"]["in_pkt_header"]["ip_src"]:
-
                 send_port_id = self.config_data["traffic"]["send_port"][1]
                 if iteration == 1:
                     receive_port_id = self.config_data["traffic"]["receive_port"][3]
@@ -667,7 +665,6 @@ class L3_Action_Selector(BaseTest):
         self.dataplane.kill()
 
     def tearDown(self):
-
         # Deleting rules
         log.info("Deleting rules")
         table = self.config_data["table"][1]

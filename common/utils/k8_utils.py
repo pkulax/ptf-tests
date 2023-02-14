@@ -17,7 +17,7 @@ from common.lib.k8_dpdk_lib import K8_DPDK
 import common.utils.log as log
 
 
-def create_pod(pod_name: str, pod_body: dict, namespace='default'):
+def create_pod(pod_name: str, pod_body: dict, namespace="default"):
     """
     Util function to create pod 'pod_name'
     params:
@@ -27,7 +27,7 @@ def create_pod(pod_name: str, pod_body: dict, namespace='default'):
     None
     """
     k8_api = K8_DPDK()
-    k8_api.create_pod(pod_name,pod_body,namespace=namespace)
+    k8_api.create_pod(pod_name, pod_body, namespace=namespace)
 
 
 def delete_pod(pod_name):
@@ -36,7 +36,7 @@ def delete_pod(pod_name):
     params:
     pod_name: String
 
-    returns: 
+    returns:
     None
     """
     k8_api = K8_DPDK()
@@ -68,7 +68,6 @@ def delete_pods_with_given_namespace(namespace="default"):
         return True
 
 
-
 def execute_command(pod_name, cmds):
     """
     Util function to execute 'cmds' in pod 'pod_name'
@@ -76,12 +75,13 @@ def execute_command(pod_name, cmds):
     pod_name: String
     cmds: list
 
-    return: 
+    return:
     resp: String
     """
     k8_api = K8_DPDK()
     resp = k8_api.execute_command(pod_name, cmds)
     return resp
+
 
 def find_pod_ip(pod_name):
     """
@@ -89,7 +89,7 @@ def find_pod_ip(pod_name):
     params:
     pod_name: String
 
-    return: 
+    return:
     pod_ip: String
     """
     k8_api = K8_DPDK()
@@ -100,6 +100,7 @@ def find_pod_ip(pod_name):
             return item.status.pod_ip
 
     return None
+
 
 def find_pods_with_namespace(namespace="default"):
     """
@@ -112,12 +113,13 @@ def find_pods_with_namespace(namespace="default"):
     """
     k8_api = K8_DPDK()
     ret = k8_api.list_pod()
-    pod_names=[]
+    pod_names = []
     for item in ret.items:
         if item.metadata.namespace == namespace:
             pod_names.append(item.metadata.name)
 
     return pod_names
+
 
 def verify_pod_running(pod_name):
     """
@@ -138,6 +140,7 @@ def verify_pod_running(pod_name):
     log.info(f"test pod {pod_name} not running")
     return False
 
+
 def ping_and_verify_no_packet_loss(pod_name, dest_ip, count=10):
     """
     Util function to ping dest ip and verify if 0% packet loss
@@ -149,13 +152,16 @@ def ping_and_verify_no_packet_loss(pod_name, dest_ip, count=10):
     Boolean True/False
     """
     k8_api = K8_DPDK()
-    cmds = ['/bin/sh', '-c', f'ping -c 10 {dest_ip} | egrep -oi "[0-9]*% packet loss" | grep -oi [0-9]*']
+    cmds = [
+        "/bin/sh",
+        "-c",
+        f'ping -c 10 {dest_ip} | egrep -oi "[0-9]*% packet loss" | grep -oi [0-9]*',
+    ]
     resp = k8_api.execute_command(pod_name, cmds)
     log.info(f"{resp}% packet loss")
     if not resp:
         return False
-    elif resp != '0':
+    elif resp != "0":
         return False
     else:
         return True
-

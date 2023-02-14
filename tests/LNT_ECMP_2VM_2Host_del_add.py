@@ -75,10 +75,10 @@ class LNT_ECMP_DEL_ADD_RULE(BaseTest):
         # Generate p4c artifact and create binary by using tdi pna arch
         if not test_utils.gen_dep_files_p4c_dpdk_pna_tdi_pipeline_builder(
             self.config_data
-        ):  
+        ):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to generate P4C artifacts or pb.bin")
-        
+
         # Create ports using gnmi-ctl
         if not gnmi_ctl_utils.gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
@@ -169,7 +169,6 @@ class LNT_ECMP_DEL_ADD_RULE(BaseTest):
             self.config_data["vxlan"]["tep_ip"][1].split("/")[0],
             self.config_data["vxlan"]["dst_port"][0],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"Failed to add vxlan {self.config_data['vxlan']['vxlan_name'][0]} to bridge {self.config_data['bridge']}"
@@ -220,7 +219,6 @@ class LNT_ECMP_DEL_ADD_RULE(BaseTest):
             username=self.config_data["client_username"],
             passwd=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"Failed to add bridge {self.config_data['bridge']} to \
@@ -235,7 +233,6 @@ class LNT_ECMP_DEL_ADD_RULE(BaseTest):
             username=self.config_data["client_username"],
             password=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed to bring up {self.config_data['bridge']}")
 
@@ -251,7 +248,6 @@ class LNT_ECMP_DEL_ADD_RULE(BaseTest):
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
-
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(
                     f"Failed to add VM namesapce {namespace['name']} on on {self.config_data['client_hostname']}"
@@ -265,7 +261,6 @@ class LNT_ECMP_DEL_ADD_RULE(BaseTest):
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
-
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(
                     f"Failed to add port {namespace['peer_name']} to bridge {self.config_data['bridge']}"
@@ -285,7 +280,6 @@ class LNT_ECMP_DEL_ADD_RULE(BaseTest):
             username=self.config_data["client_username"],
             password=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"Failed to add vxlan {self.config_data['vxlan']['vxlan_name'][0]} to \
@@ -445,7 +439,6 @@ class LNT_ECMP_DEL_ADD_RULE(BaseTest):
             conn.close()
 
     def tearDown(self):
-       
         log.info("Unconfiguration on local host")
         log.info(f"Delete p4ovs match action rules on local host")
         for table in self.config_data["table"]:
@@ -496,7 +489,6 @@ class LNT_ECMP_DEL_ADD_RULE(BaseTest):
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
-
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(
                     f"Failed to delete VM namesapce {namespace['name']} on {self.config_data['client_hostname']}"

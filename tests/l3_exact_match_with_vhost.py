@@ -104,7 +104,6 @@ class L3_Exact_Match(BaseTest):
 
         # Add l3 exact match forward rules
         for table in self.config_data["table"]:
-
             log.info(f"Scenario : {table['description']}")
             log.info(f"Adding {table['description']} rules")
             for match_action in table["match_action"]:
@@ -144,7 +143,6 @@ class L3_Exact_Match(BaseTest):
         conn2.close()
 
     def tearDown(self):
-
         # Delete table entries
         for table in self.config_data["table"]:
             log.info(f"Deleting {table['description']} rules")

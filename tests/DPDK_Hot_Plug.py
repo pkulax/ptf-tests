@@ -41,34 +41,47 @@ from scapy.all import *
 # framework related imports
 import common.utils.p4rtctl_utils as p4rt_ctl
 import common.utils.test_utils as test_utils
-from common.utils.config_file_utils import get_config_dict, get_gnmi_params_simple, get_gnmi_params_hotplug, get_interface_ipv4_dict, get_interface_ipv4_dict_hotplug, get_interface_mac_dict_hotplug, get_interface_ipv4_route_dict_hotplug, create_port_vm_map
-from common.utils.gnmi_ctl_utils import gnmi_ctl_set_and_verify, gnmi_set_params, ip_set_ipv4
+from common.utils.config_file_utils import (
+    get_config_dict,
+    get_gnmi_params_simple,
+    get_gnmi_params_hotplug,
+    get_interface_ipv4_dict,
+    get_interface_ipv4_dict_hotplug,
+    get_interface_mac_dict_hotplug,
+    get_interface_ipv4_route_dict_hotplug,
+    create_port_vm_map,
+)
+from common.utils.gnmi_ctl_utils import (
+    gnmi_ctl_set_and_verify,
+    gnmi_set_params,
+    ip_set_ipv4,
+)
 from common.lib.telnet_connection import connectionManager
 
 
 class Dpdk_Hot_Plug(BaseTest):
-
     def setUp(self):
         BaseTest.setUp(self)
         self.result = unittest.TestResult()
-        config["relax"] = True 
-        
+        config["relax"] = True
+
         test_params = test_params_get()
-        config_json = test_params['config_json']
+        config_json = test_params["config_json"]
         try:
-            self.vm_cred = test_params['vm_cred']
+            self.vm_cred = test_params["vm_cred"]
         except KeyError:
             self.vm_cred = ""
         self.dataplane = ptf.dataplane_instance
         ptf.dataplane_instance = ptf.dataplane.DataPlane(config)
-        self.config_data = get_config_dict(config_json,vm_location_list=test_params['vm_location_list'])
+        self.config_data = get_config_dict(
+            config_json, vm_location_list=test_params["vm_location_list"]
+        )
         self.gnmictl_params = get_gnmi_params_simple(self.config_data)
         self.gnmictl_hotplug_params = get_gnmi_params_hotplug(self.config_data)
         self.interface_ip_list = get_interface_ipv4_dict(self.config_data)
-        
-           
+
     def runTest(self):
-        # Create VM 
+        # Create VM
         result, vm_name = test_utils.vm_create_with_hotplug(self.config_data)
         if not result:
             self.result.addFailure(self, sys.exc_info())
@@ -77,17 +90,22 @@ class Dpdk_Hot_Plug(BaseTest):
         # Give sleep for VM to come up
         log.info("Sleeping for 30 seconds for the vms to come up")
         time.sleep(30)
-        
-        # Log in on VM using Telnet 
-        vm=self.config_data['vm'][0]
-        vm['qemu-hotplug-mode']['qemu-socket-ip']
-        conn1 = connectionManager(vm['qemu-hotplug-mode']['qemu-socket-ip'],vm['qemu-hotplug-mode']['serial-telnet-port'],vm['vm_username'], password=vm['vm_password'])
+
+        # Log in on VM using Telnet
+        vm = self.config_data["vm"][0]
+        vm["qemu-hotplug-mode"]["qemu-socket-ip"]
+        conn1 = connectionManager(
+            vm["qemu-hotplug-mode"]["qemu-socket-ip"],
+            vm["qemu-hotplug-mode"]["serial-telnet-port"],
+            vm["vm_username"],
+            password=vm["vm_password"],
+        )
         vm1_command_list = ["ip a | egrep \"[0-9]*: \" | cut -d ':' -f 2"]
         result = test_utils.sendCmd_and_recvResult(conn1, vm1_command_list)[0]
         result = result.split("\n")
-        vm1result1 = list(dropwhile(lambda x: 'lo\r' not in x, result))
+        vm1result1 = list(dropwhile(lambda x: "lo\r" not in x, result))
 
-        # Create vhost-user Ports using gnmi-ctl 
+        # Create vhost-user Ports using gnmi-ctl
         if not gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure gnmi ctl ports")
@@ -100,7 +118,7 @@ class Dpdk_Hot_Plug(BaseTest):
         # Check and verify vhost-user hotplugged successfully to the VM
         result = test_utils.sendCmd_and_recvResult(conn1, vm1_command_list)[0]
         result = result.split("\n")
-        vm1result2 = list(dropwhile(lambda x: 'lo\r' not in x, result))
+        vm1result2 = list(dropwhile(lambda x: "lo\r" not in x, result))
         vm1interfaces = list(set(vm1result2) - set(vm1result1))
         vm1interfaces = [x.strip() for x in vm1interfaces]
         log.info(f"interfaces: {vm1interfaces}")
@@ -115,4 +133,3 @@ class Dpdk_Hot_Plug(BaseTest):
             log.passed("Test has PASSED")
         else:
             log.failed("Test has FAILED")
-

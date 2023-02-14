@@ -397,9 +397,7 @@ class PortConfig(object):
             e.g. ip route add 40.1.1.2 nexthop via 50.1.1.2 dev TAP1 weight 1 nexthop via 60.1.1.2 dev TAP2 weight 1
             """
             cmd = " "
-            for (nexthop, device, weight) in zip(
-                nexthop_list, device_list, weight_list
-            ):
+            for nexthop, device, weight in zip(nexthop_list, device_list, weight_list):
                 cmd = cmd + f"nexthop via {nexthop} dev {device} weight {weight} "
             cmd = self.form_cmd(f" route add {dst} {cmd}")
             output, return_code, err = self.connection.execute_command(cmd)

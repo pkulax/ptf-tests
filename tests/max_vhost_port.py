@@ -21,6 +21,7 @@ DPDK MAX vHOST PORT
 # in-built module imports
 import time
 import sys, unittest
+
 # ptf related imports
 import ptf
 from ptf.base_tests import BaseTest
@@ -35,19 +36,18 @@ from common.utils.test_utils import check_and_clear_vhost, check_vhost_socket_co
 
 
 class Max_vHosts_Port_Mtu(BaseTest):
-
     def setUp(self):
         BaseTest.setUp(self)
         self.result = unittest.TestResult()
         test_params = test_params_get()
-        config_json = test_params['config_json']
+        config_json = test_params["config_json"]
         self.config_data = get_config_dict(config_json)
 
         self.gnmictl_params = get_gnmi_params_simple(self.config_data)
 
     def runTest(self):
-        socket_path_dir = self.config_data['socket_path_dir']
-        max_port_count = int(self.config_data['max_port_count'])
+        socket_path_dir = self.config_data["socket_path_dir"]
+        max_port_count = int(self.config_data["max_port_count"])
         check_vhost = check_and_clear_vhost(socket_path_dir)
         if not check_vhost:
             self.result.addFailure(self, sys.exc_info())
@@ -58,23 +58,21 @@ class Max_vHosts_Port_Mtu(BaseTest):
         if not gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to configure gnmi ctl ports")
-        else: 
+        else:
             vhost_socket_count, _ = check_vhost_socket_count(socket_path_dir)
             if vhost_socket_count == max_port_count:
-                log.passed(f"Verification of max tap port count is {vhost_socket_count}")
-                log.info(f"Max vHOST port count:  {max_port_count}  successful ") 
+                log.passed(
+                    f"Verification of max tap port count is {vhost_socket_count}"
+                )
+                log.info(f"Max vHOST port count:  {max_port_count}  successful ")
             else:
                 self.result.addFailure(self, sys.exc_info())
-                self.fail(f"FAIL: Verification of max tap port count is {vhost_socket_count} | Expected count:  {max_port_count}")
+                self.fail(
+                    f"FAIL: Verification of max tap port count is {vhost_socket_count} | Expected count:  {max_port_count}"
+                )
 
-  
     def tearDown(self):
-
         if self.result.wasSuccessful():
             log.passed("Test has PASSED")
         else:
             log.failed("Test has FAILED")
-        
-
- 
-

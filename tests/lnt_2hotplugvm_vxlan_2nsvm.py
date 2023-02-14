@@ -187,7 +187,7 @@ class LNT_2HotplugVM_VXLAN_2NsVM(BaseTest):
         ):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to generate P4C artifacts or pb.bin")
-    
+
         # set pipe line
         if not p4rt_ctl.p4rt_ctl_set_pipe(
             self.config_data["switch"],
@@ -214,7 +214,6 @@ class LNT_2HotplugVM_VXLAN_2NsVM(BaseTest):
             self.config_data["vxlan"]["tep_ip"][1].split("/")[0],
             self.config_data["vxlan"]["dst_port"][0],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"Failed to add vxlan {self.config_data['vxlan']['vxlan_name'][0]} to bridge {self.config_data['bridge']}"
@@ -266,7 +265,6 @@ class LNT_2HotplugVM_VXLAN_2NsVM(BaseTest):
             username=self.config_data["client_username"],
             passwd=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"Failed to add bridge {self.config_data['bridge']} to \
@@ -281,7 +279,6 @@ class LNT_2HotplugVM_VXLAN_2NsVM(BaseTest):
             username=self.config_data["client_username"],
             password=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed to bring up {self.config_data['bridge']}")
 
@@ -294,7 +291,6 @@ class LNT_2HotplugVM_VXLAN_2NsVM(BaseTest):
             username=self.config_data["client_username"],
             passwd=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"Failed to bring up {self.config_data['bridge']} on {self.config_data['client_hostname']}"
@@ -312,7 +308,6 @@ class LNT_2HotplugVM_VXLAN_2NsVM(BaseTest):
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
-
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(
                     f"Failed to add VM namesapce {namespace['name']} on on {self.config_data['client_hostname']}"
@@ -326,7 +321,6 @@ class LNT_2HotplugVM_VXLAN_2NsVM(BaseTest):
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
-
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(
                     f"Failed to add port {namespace['peer_name']} to bridge {self.config_data['bridge']}"
@@ -346,7 +340,6 @@ class LNT_2HotplugVM_VXLAN_2NsVM(BaseTest):
             username=self.config_data["client_username"],
             password=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"Failed to add vxlan {self.config_data['vxlan']['vxlan_name'][0]} to \
@@ -376,7 +369,6 @@ class LNT_2HotplugVM_VXLAN_2NsVM(BaseTest):
             username=self.config_data["client_username"],
             password=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"Failed to add physical port {self.config_data['remote_port'][0]} to \
@@ -438,7 +430,6 @@ class LNT_2HotplugVM_VXLAN_2NsVM(BaseTest):
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
-
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(
                     f"Failed to delete VM namesapce {namespace['name']} on {self.config_data['client_hostname']}"

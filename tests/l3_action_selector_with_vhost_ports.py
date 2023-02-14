@@ -216,7 +216,6 @@ class L3_Action_Selector_Vhost(BaseTest):
         conn2.close()
 
     def tearDown(self):
-
         table = self.config_data["table"][0]
         log.info("Deleting groups")
         for del_group in table["del_group"]:

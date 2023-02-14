@@ -46,30 +46,42 @@ from scapy.all import *
 # framework related imports
 import common.utils.p4rtctl_utils as p4rt_ctl
 import common.utils.test_utils as test_utils
-from common.utils.config_file_utils import get_config_dict, get_gnmi_params_simple, get_interface_ipv4_dict
-from common.utils.gnmi_ctl_utils import gnmi_ctl_set_and_verify, gnmi_get_params_elemt_value, gnmi_set_params, ip_set_ipv4,gnmi_get_params_verify
+from common.utils.config_file_utils import (
+    get_config_dict,
+    get_gnmi_params_simple,
+    get_interface_ipv4_dict,
+)
+from common.utils.gnmi_ctl_utils import (
+    gnmi_ctl_set_and_verify,
+    gnmi_get_params_elemt_value,
+    gnmi_set_params,
+    ip_set_ipv4,
+    gnmi_get_params_verify,
+)
 from common.lib.port_config import PortConfig
 
-class Port_dump_mix_port(BaseTest):
 
+class Port_dump_mix_port(BaseTest):
     def setUp(self):
         BaseTest.setUp(self)
         self.result = unittest.TestResult()
-        config["relax"] = True # for verify_packets to ignore other packets received at the interface
+        config[
+            "relax"
+        ] = True  # for verify_packets to ignore other packets received at the interface
 
         test_params = test_params_get()
-        config_json = test_params['config_json']
-        pci_bdf = test_params['pci_bdf']
+        config_json = test_params["config_json"]
+        pci_bdf = test_params["pci_bdf"]
         self.config_data = get_config_dict(config_json, pci_bdf=pci_bdf)
         self.gnmictl_params = get_gnmi_params_simple(self.config_data)
         self.totalPorts = len(self.gnmictl_params)
-     
+
     def runTest(self):
-        # Compile p4 file using p4c compiler and generate binary using ovs pipeline builder  
+        # Compile p4 file using p4c compiler and generate binary using ovs pipeline builder
         if not test_utils.gen_dep_files_p4c_tdi_pipeline_builder(self.config_data):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to generate P4C artifacts or pb.bin")
-        
+
         # Create Ports using gnmi-ctl
         if not gnmi_ctl_set_and_verify(self.gnmictl_params):
             self.result.addFailure(self, sys.exc_info())
@@ -79,37 +91,46 @@ class Port_dump_mix_port(BaseTest):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to verify gnmi ctl ports")
 
-        #verify port id formation
-        tdi_in_id_list = gnmi_get_params_elemt_value(self.gnmictl_params,"tdi-portin-id")
+        # verify port id formation
+        tdi_in_id_list = gnmi_get_params_elemt_value(
+            self.gnmictl_params, "tdi-portin-id"
+        )
         if not tdi_in_id_list:
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to verify tdi-portin-id ")
 
-        tdi_out_id_list = gnmi_get_params_elemt_value(self.gnmictl_params, "tdi-portout-id")
+        tdi_out_id_list = gnmi_get_params_elemt_value(
+            self.gnmictl_params, "tdi-portout-id"
+        )
         if not tdi_out_id_list:
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to verify tdi-portout-id")
-            
-        log.info(f"Verify that in id {tdi_in_id_list} and out id {tdi_in_id_list} must be same")
-        if tdi_out_id_list !=  tdi_in_id_list:
+
+        log.info(
+            f"Verify that in id {tdi_in_id_list} and out id {tdi_in_id_list} must be same"
+        )
+        if tdi_out_id_list != tdi_in_id_list:
             self.result.addFailure(self, sys.exc_info())
-            self.fail(f"Failed: in id {tdi_in_id_list} and out id {tdi_in_id_list} must be in same order")
-        
-        breakpoint()
+            self.fail(
+                f"Failed: in id {tdi_in_id_list} and out id {tdi_in_id_list} must be in same order"
+            )
+
         log.info(f"Verify that out id {tdi_in_id_list} no duplication")
         if len(tdi_out_id_list) != len(set(tdi_out_id_list)):
             log.info(tdi_out_id_list)
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed: {tdi_in_id_list} has duplicated id ")
-          
-        log.info(f"Verify if the number of ports {self.totalPorts} created is same as defined")
-        if  self.totalPorts != len(tdi_in_id_list):
+
+        log.info(
+            f"Verify if the number of ports {self.totalPorts} created is same as defined"
+        )
+        if self.totalPorts != len(tdi_in_id_list):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to verify the number of port created is same as defined")
 
         # the value tdi_in_id_list is in string foramt
         # covert them to integer in order to check incremental order
-        port_id_list=[]
+        port_id_list = []
         for id in tdi_in_id_list:
             try:
                 if int(id) < 0:
@@ -120,19 +141,22 @@ class Port_dump_mix_port(BaseTest):
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(f"Failed: {tdi_in_id_list} has negative integer")
         log.info(f"verify all ports id are integer as {port_id_list} ")
-        
+
         log.info(f"check if port id is created in incremental order as {port_id_list}")
         if sorted(port_id_list) != port_id_list:
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to verify port ids are created in incremental order")
-        
+
         log.info("verify pipe can be set after port confiured")
-        if not p4rt_ctl.p4rt_ctl_set_pipe(self.config_data['switch'], self.config_data['pb_bin'], self.config_data['p4_info']):
+        if not p4rt_ctl.p4rt_ctl_set_pipe(
+            self.config_data["switch"],
+            self.config_data["pb_bin"],
+            self.config_data["p4_info"],
+        ):
             self.result.addFailure(self, sys.exc_info())
             self.fail("Failed to set pipe")
-        
+
     def tearDown(self):
-    
         if self.result.wasSuccessful():
             log.passed("Test has PASSED")
         else:

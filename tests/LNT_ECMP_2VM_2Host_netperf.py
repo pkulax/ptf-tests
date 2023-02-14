@@ -175,7 +175,6 @@ class LNT_ECMP_2VM_2Host_netperf(BaseTest):
             self.config_data["vxlan"]["tep_ip"][1].split("/")[0],
             self.config_data["vxlan"]["dst_port"][0],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"Failed to add vxlan {self.config_data['vxlan']['vxlan_name'][0]} to bridge {self.config_data['bridge']}"
@@ -227,7 +226,6 @@ class LNT_ECMP_2VM_2Host_netperf(BaseTest):
             username=self.config_data["client_username"],
             passwd=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"Failed to add bridge {self.config_data['bridge']} to \
@@ -242,7 +240,6 @@ class LNT_ECMP_2VM_2Host_netperf(BaseTest):
             username=self.config_data["client_username"],
             password=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(f"Failed to bring up {self.config_data['bridge']}")
 
@@ -258,7 +255,6 @@ class LNT_ECMP_2VM_2Host_netperf(BaseTest):
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
-
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(
                     f"Failed to add VM namesapce {namespace['name']} on on {self.config_data['client_hostname']}"
@@ -272,7 +268,6 @@ class LNT_ECMP_2VM_2Host_netperf(BaseTest):
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
-
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(
                     f"Failed to add port {namespace['peer_name']} to bridge {self.config_data['bridge']}"
@@ -292,7 +287,6 @@ class LNT_ECMP_2VM_2Host_netperf(BaseTest):
             username=self.config_data["client_username"],
             password=self.config_data["client_password"],
         ):
-
             self.result.addFailure(self, sys.exc_info())
             self.fail(
                 f"Failed to add vxlan {self.config_data['vxlan']['vxlan_name'][0]} to \
@@ -613,7 +607,7 @@ class LNT_ECMP_2VM_2Host_netperf(BaseTest):
                 f"PASS: Minimum {vm_packet} packets expected and {stat_total} received"
             )
         else:
-            log.info(f"FAIL: {vm_packet} packets expected but {stat_total} received")
+            log.failed(f"{vm_packet} packets expected but {stat_total} received")
             self.result.addFailure(self, sys.exc_info())
 
         # Closing telnet session
@@ -622,7 +616,6 @@ class LNT_ECMP_2VM_2Host_netperf(BaseTest):
             conn.close()
 
     def tearDown(self):
-
         log.info("Unconfiguration on local host")
         log.info("Delete p4ovs match action rules on local host")
         # Delete rules
@@ -678,7 +671,6 @@ class LNT_ECMP_2VM_2Host_netperf(BaseTest):
                 username=self.config_data["client_username"],
                 password=self.config_data["client_password"],
             ):
-
                 self.result.addFailure(self, sys.exc_info())
                 self.fail(
                     f"Failed to delete VM namesapce {namespace['name']} on {self.config_data['client_hostname']}"
