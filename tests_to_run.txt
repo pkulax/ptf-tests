@@ -97,6 +97,7 @@ ct_connection_tap_link_ports_with_scapy_icmp:config_json='ct_connection_tap_link
 ct_connection_tap_link_ports_with_scapy_udp:config_json='ct_connection_tap_link_ports_with_scapy_udp.json';pci_bdf='BDF1'
 ct_connection_vhost_ports_with_ping_icmp:config_json='ct_connection_vhost_ports_with_ping_icmp.json';vm_location_list='VM1,VM2'
 ct_connection_vhost_ports_with_netperf_udp:config_json='ct_connection_vhost_ports_with_netperf_udp.json';vm_location_list='VM1,VM2'
+DPDK_Flow_Dump_with_CT:config_json='DPDK_Flow_Dump_with_CT.json';pci_bdf='BDF1'
 DPDK_Flow_Dump_Help:config_json='DPDK_Flow_Dump_Help.json'
 DPDK_Flow_Dump_with_LNT:config_json='DPDK_Flow_Dump_with_LNT.json';lnt_pci_bdf='LNT_BDF1,LNT_BDF2'
 DPDK_Flow_Dump_with_del_add:config_json='DPDK_Flow_Dump_with_simple_l3.json'
