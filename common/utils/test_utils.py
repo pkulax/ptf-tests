@@ -19,6 +19,7 @@ Generic utility scripts for P4OVS PTF scripts.
 
 from ptf import *
 from ptf.testutils import *
+from git import Repo
 import common.lib.local_connection as local_connection
 
 import json
@@ -1652,3 +1653,29 @@ def create_yaml_file_from_template(pod_name, infile="test_pod_template.yaml"):
 
     log.info(f"{outfile} Created ...")
     return outfile
+
+
+def git_clone_remote_repo(repo, dest_folder):
+    """
+    Util function to git clone a remote repo
+    params:
+    repo: String
+    dest_folder: String
+    username: String
+    password: String
+
+    returns:
+    Bollean True/False
+    """
+
+    local = Local()
+
+    # remove dest_folder if any
+    local.execute_command(f"rm -rf {dest_folder}")
+
+    cmd = f"https://{repo}"
+    Repo.clone_from(cmd, dest_folder)
+    if os.path.exists(dest_folder):
+        log.passed(f"Git clone {repo} Successful")
+        return True
+    return False
