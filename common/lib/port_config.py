@@ -68,6 +68,21 @@ class PortConfig(object):
             log.passed(f"{cmd}")
             return output
 
+        def gnmi_ctl_set_max_plus1_port(self, params):
+            """
+            gnmi-cli set command for the max+1 port
+            :param params: all parameters required for gnmi-cli set
+            :type params: str
+            :return: stdout of the gnmi-ctl set command
+            :rtype: str
+            """
+            cmd = self.form_cmd(f'set "{params}"')
+            output, return_code, _ = self.local.execute_command(cmd)
+            if "Set request, successful" not in output:
+                return True
+            else:
+                raise ExecuteCMDException("Max+1 port created")
+
         def gnmi_ctl_get(self, mandatory_params, key):
             """
             gnmi-cli get command

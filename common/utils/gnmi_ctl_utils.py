@@ -41,6 +41,28 @@ def gnmi_set_params(params):
     return output
 
 
+def gnmi_set_params_max_plus1_ports(params):
+    """
+    util function: create max no of port (16) then try to add one more port(port no.17)
+    :param params: list of params
+                --> ["device:virtual-device,name:net_vhost0,host:host1,device-type:VIRTIO_NET,queues:1,socket-path:/tmp/vhost-user-0,port-type:LINK",
+                "device:virtual-device,name:net_vhost1,host:host2,device-type:VIRTIO_NET,queues:1,socket-path:/tmp/vhost-user-1,port-type:LINK",
+                ...]
+    :return Boolean True/False
+    """
+    port_config = PortConfig()
+    try:
+        for param in params[:-1]:
+            output = port_config.GNMICTL.gnmi_ctl_set(param)
+        port_config.GNMICTL.gnmi_ctl_set_max_plus1_port(params[-1])
+
+    except Exception as err:
+        output = False
+
+    port_config.GNMICTL.tear_down()
+    return output
+
+
 def gnmi_get_params_verify(params):
     port_config = PortConfig()
     results = []
