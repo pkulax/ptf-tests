@@ -17,6 +17,7 @@
 import common.utils.log as log
 from common.lib.port_config import PortConfig
 from common.lib.local_connection import Local
+from common.lib.exceptions import ExecuteCMDException
 
 
 def gnmi_ctl_set_and_verify(params):
@@ -40,6 +41,26 @@ def gnmi_set_params(params):
 
     return output
 
+def gnmi_ctl_set_and_verify_invalid_args(params):
+    """
+    Util function to gnmi-set and verify using gnmi-get
+    :param params: list of params
+                --> ["device:virtual-device,name:net_vhost0,host:host1,device-type:VIRTIO_NET,queues:1,socket-path:/tmp/vhost-user-0,port-type:LINK",
+                "device:virtual-device,name:net_vhost1,host:host2,device-type:VIRTIO_NET,queues:1,socket-path:/tmp/vhost-user-1,port-type:LINK",
+                ...]
+    :return: Boolean True/False
+    """
+    port_config = PortConfig()
+    for param in params:
+        try: 
+            port_config.GNMICTL.gnmi_ctl_set(param)
+        except ExecuteCMDException as err: 
+            log.passed(f"Expected failure: {err}")
+            return True
+    port_config.GNMICTL.tear_down()
+    log.failed("Expected to fail, however passed")
+    
+    return False
 
 def gnmi_get_params_verify(params):
     port_config = PortConfig()
