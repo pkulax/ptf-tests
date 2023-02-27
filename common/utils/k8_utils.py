@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from common.lib.k8_dpdk_lib import K8_DPDK
+from common.lib.local_connection import Local
 import common.utils.log as log
 
 
@@ -165,3 +166,102 @@ def ping_and_verify_no_packet_loss(pod_name, dest_ip, count=10):
         return False
     else:
         return True
+
+
+def check_service_status(service_name, expected_status=True):
+    """
+    Util function to check the status of service "service_name", default check expected_status=True, i.e. running
+    params:
+    service_name: String
+
+    return:
+    Boolean True or False
+    """
+    k8_api = K8_DPDK()
+    log.info(f"Checking if service:{service_name} is running or not")
+    ret = k8_api.check_service_running(service_name)
+
+    if ret == expected_status:
+        return True
+
+    return False
+
+
+def execute_iperf_setup(kube_iperf_path):
+    """
+    Util function to execute setup.sh located at kube_iperf_path/steps/
+
+    params:
+    kube_iperf_path: String
+
+    return:
+    Boolean True/False
+    """
+    local = Local()
+    cmd = f"cd {kube_iperf_path}; ./steps/setup.sh"
+
+    ret, _, _ = local.execute_command(cmd)
+
+    log.info(ret)
+
+    if "Server is running" in ret:
+        log.passed("Successfully executed setup.sh")
+        return True
+
+    log.failed("Failed to execute setup.sh")
+    return False
+
+
+def execute_iperf_cleanup(kube_iperf_path, service_name="iperf3-server"):
+    """
+    Util function to execute cleanup.sh located at kube_iperf_path/steps/
+
+    params:
+    kube_iperf_path: String
+
+    return:
+    Boolean True/False
+    """
+    local = Local()
+    cmd = f"cd {kube_iperf_path}; ./steps/cleanup.sh"
+
+    ret, _, _ = local.execute_command(cmd)
+
+    log.info(ret)
+
+    if f'service "{service_name}" deleted' in ret:
+        log.passed("Successfully executed cleanup.sh")
+        return True
+
+    log.failed("Failed to execute cleanup.sh")
+    return False
+
+
+def execute_iperf_client(kube_iperf_path):
+    """
+    Util function to execute run.sh located at kube_iperf_path/steps/
+
+    params:
+    kube_iperf_path: String
+
+    return:
+    rx_pkt, tx_pkt: String (in Mbytes)
+    """
+    local = Local()
+    cmd = f"cd {kube_iperf_path}; ./steps/run.sh"
+
+    ret, _, _ = local.execute_command(cmd)
+
+    log.info(ret)
+
+    rx_pkt = 0
+    tx_pkt = 0
+    for line in ret.split("\n"):
+        if "sender" in line:
+            rx_pkt = int(line.split()[7])
+        elif "receiver" in line:
+            tx_pkt = int(line.split()[7])
+        else:
+            continue
+
+    return rx_pkt, tx_pkt

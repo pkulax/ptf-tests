@@ -133,3 +133,20 @@ class K8_DPDK:
             return False
 
         return resp
+
+    def check_service_running(self, service_name):
+        """
+        Method to find if service 'service_name' is running
+        params:
+        service_name: String
+        returns:
+        Boolean True/False
+        """
+        all_services = self.apiinstance.list_service_for_all_namespaces()
+        for item in all_services.items:
+            if item.metadata.name == service_name:
+                log.info(f"Service {service_name} running")
+                return True
+
+        log.info(f"Service {service_name} not running")
+        return False
