@@ -4,7 +4,7 @@
 
 from typing import Optional
 
-from paramiko.client import RejectPolicy, SSHClient
+from paramiko.client import AutoAddPolicy, SSHClient
 
 from system_tools.errors import CommandException
 
@@ -17,7 +17,7 @@ class SSHTerminal:
         self.client = SSHClient()
 
         self.client.load_system_host_keys()
-        self.client.set_missing_host_key_policy(RejectPolicy)
+        self.client.set_missing_host_key_policy(AutoAddPolicy)
         self.client.connect(
             config.ip_address,
             config.port,
