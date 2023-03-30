@@ -182,7 +182,6 @@ class BaseTestPlatform:
         self.terminal.execute(f"sudo kill -9 {pid}")
 
     def clean(self):
-        self.cmd_sender.stop()
         self.docker.delete_containers()
 
     def is_port_free(self, port):

@@ -59,11 +59,6 @@ class TestMinHotPlugAndFio(BaseTest):
             self.tests_config.min_ramdrive,
         )
 
-        self.ipu_storage_platform.delete_virtio_blk_devices(devices_handles)
-        self.assertEqual(
-            self.host_target_platform.get_number_of_virtio_blk_devices(), 0
-        )
-
         for io_pattern in FIO_IO_PATTERNS:
             fio_args = {
                 **FIO_COMMON,
@@ -72,6 +67,11 @@ class TestMinHotPlugAndFio(BaseTest):
             for device in devices_handles:
                 self.assertTrue(device.run_fio(fio_args))
 
+        self.ipu_storage_platform.delete_virtio_blk_devices(devices_handles)
+        self.assertEqual(
+            self.host_target_platform.get_number_of_virtio_blk_devices(), 0
+        )
+
         second_delete_responses = self.ipu_storage_platform.delete_virtio_blk_devices(
             devices_handles
         )
@@ -79,6 +79,7 @@ class TestMinHotPlugAndFio(BaseTest):
             self.assertTrue(response)
 
     def tearDown(self):
+        self.platforms_factory.cmd_sender.stop()
         self.ipu_storage_platform.clean()
         self.storage_target_platform.clean()
         self.host_target_platform.clean()
@@ -140,6 +141,7 @@ class TestMaxHotPlug(BaseTest):
         )
 
     def tearDown(self):
+        self.platforms_factory.cmd_sender.stop()
         self.ipu_storage_platform.clean()
         self.storage_target_platform.clean()
         self.host_target_platform.clean()
@@ -192,6 +194,7 @@ class TestAboveMaxHotPlug(BaseTest):
         )
 
     def tearDown(self):
+        self.platforms_factory.cmd_sender.stop()
         self.ipu_storage_platform.clean()
         self.storage_target_platform.clean()
         self.host_target_platform.clean()
