@@ -10,7 +10,7 @@ from system_tools.config import (HostTargetConfig, IPUStorageConfig,
                                  StorageTargetConfig, TestConfig)
 from system_tools.const import DEFAULT_HOST_TARGET_SERVICE_PORT_IN_VM
 from system_tools.errors import ContainerNotRunningException
-from system_tools.ssh_terminal import SSHTerminal
+from system_tools.terminals import SSHTerminal
 
 
 class Docker:

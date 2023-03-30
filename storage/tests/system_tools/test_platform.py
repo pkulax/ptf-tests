@@ -9,7 +9,7 @@ from system_tools.docker import (CMDSenderContainer, Docker,
                                  StorageTargetContainer)
 from system_tools.errors import (CMDSenderPlatformNameException,
                                  MissingDependencyException)
-from system_tools.ssh_terminal import SSHTerminal
+from system_tools.terminals import SSHTerminal
 from system_tools.vm import VirtualMachine
 
 

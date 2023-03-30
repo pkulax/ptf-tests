@@ -9,7 +9,7 @@ from system_tools.config import (HostTargetConfig, IPUStorageConfig,
                                  StorageTargetConfig)
 from system_tools.docker import (CMDSenderContainer, HostTargetContainer,
                                  IPUStorageContainer, StorageTargetContainer)
-from system_tools.ssh_terminal import SSHTerminal
+from system_tools.terminals import SSHTerminal
 
 
 class TestTerminalConnect(BaseTest):

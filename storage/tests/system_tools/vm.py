@@ -2,21 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-import sys
-
-# add build dir to the path
-sys.path.append("../../../../..")
-
 import os
 import re
 import time
 
-from storage.scripts.socket_functions import send_command_over_unix_socket
 from tenacity import retry, stop_after_delay
 
 from system_tools.const import (DEFAULT_HOST_TARGET_SERVICE_PORT_IN_VM,
                                 DEFAULT_QMP_PORT)
 from system_tools.errors import BusyPortException, VirtualizationException
+from system_tools.socket_functions import send_command_over_unix_socket
 
 
 class VirtualMachine:
