@@ -4,11 +4,11 @@
 
 from system_tools.config import (HostTargetConfig, IPUStorageConfig,
                                  StorageTargetConfig)
+from system_tools.const import FIO_COMMON
 from system_tools.docker import (CMDSenderContainer, Docker,
                                  HostTargetContainer, IPUStorageContainer,
                                  StorageTargetContainer)
-from system_tools.errors import (CMDSenderPlatformNameException,
-                                 MissingDependencyException)
+from system_tools.errors import CMDSenderPlatformNameException, MissingDependencyException
 from system_tools.terminals import SSHTerminal
 from system_tools.vm import VirtualMachine
 
@@ -35,22 +35,28 @@ class ServiceAddress:
 
 class IpuStorageDevice:
     def __init__(
-        self,
-        device_handle,
-        remote_nvme_storage,
-        ipu_platform,
-        host_target_address_service,
+            self,
+            device_handle,
+            remote_nvme_storage,
+            ipu_platform,
+            host_target_address_service,
     ):
         self._device_handle = device_handle
         self._remote_nvme_storage = remote_nvme_storage
         self._ipu_platform = ipu_platform
         self._host_target_address_service = host_target_address_service
 
-    def run_fio(self, fio_args):
-        return self._ipu_platform.run_fio(
-            self._host_target_address_service.ip_address,
+    def _prepare_fio_json_args(self, option):
+        return {
+            **FIO_COMMON,
+            "rw": option.lower(),
+        }
+
+    def run_fio(self, option):
+        return self._ipu_platform.cmd_sender.run_fio(
+            self._host_target_address_service,
             self._device_handle,
-            fio_args,
+            self._prepare_fio_json_args(option),
         )
 
 
@@ -149,7 +155,7 @@ class BaseTestPlatform:
         )
         _, stdout, stderr = self.terminal.client.exec_command(cmd)
         return (
-            "disabled" in stdout.read().decode() or "disabled" in stderr.read().decode()
+                "disabled" in stdout.read().decode() or "disabled" in stderr.read().decode()
         )
 
     # TODO add implementation
@@ -182,7 +188,6 @@ class BaseTestPlatform:
         self.terminal.execute(f"sudo kill -9 {pid}")
 
     def clean(self):
-        self.cmd_sender.stop()
         self.docker.delete_containers()
 
     def is_port_free(self, port):
@@ -232,18 +237,11 @@ class IPUStoragePlatform(BaseTestPlatform):
     def sma_port(self):
         return self.config.sma_port
 
-    def run_fio(self, host_target_ip, device_handle, fio_args):
-        return self.cmd_sender.run_fio(
-            host_target_ip,
-            device_handle,
-            fio_args,
-        )
-
     def create_virtio_blk_devices(
-        self,
-        host_target_address_service,
-        volumes,
-        physical_ids,
+            self,
+            host_target_address_service,
+            volumes,
+            physical_ids,
     ):
         device_handles = []
         for volume, physical_id in zip(volumes, physical_ids):
@@ -267,9 +265,9 @@ class IPUStoragePlatform(BaseTestPlatform):
         return device_handles
 
     def create_virtio_blk_devices_sequentially(
-        self,
-        host_target_address_service,
-        volumes,
+            self,
+            host_target_address_service,
+            volumes,
     ):
         return self.create_virtio_blk_devices(
             host_target_address_service,
@@ -329,3 +327,6 @@ class PlatformFactory:
 
     def create_host_target_platform(self):
         return HostTargetPlatform(self.cmd_sender)
+
+    def get_cmd_sender(self):
+        return self.cmd_sender
