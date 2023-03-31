@@ -176,6 +176,9 @@ class BaseTestPlatform:
             f"sudo netstat -anop | grep -Po ':{port}\s.*LISTEN.*?\K\d+(?=/)' || true"
         )
 
+    def path_exist(self, path):
+        return self.terminal.execute(f"test -e {path} || echo False") != "False"
+
     def kill_process_from_port(self, port: int):
         """Raise error if there is no process occupying specific port"""
         pid = self.get_pid_from_port(port)
