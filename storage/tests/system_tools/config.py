@@ -7,17 +7,16 @@ from abc import ABC, abstractmethod
 
 from dotenv import load_dotenv
 
-from system_tools.const import (
-    DEFAULT_HOST_TARGET_SERVICE_PORT_IN_VM,
-    DEFAULT_MAX_RAMDRIVE,
-    DEFAULT_MIN_RAMDRIVE,
-    DEFAULT_NQN,
-    DEFAULT_NVME_PORT,
-    DEFAULT_QMP_PORT,
-    DEFAULT_SMA_PORT,
-    DEFAULT_SPDK_PORT,
-    STORAGE_DIR_PATH,
-)
+from system_tools.const import (DEFAULT_HOST_TARGET_SERVICE_PORT_IN_VM,
+                                DEFAULT_MAX_RAMDRIVE, DEFAULT_MIN_RAMDRIVE,
+                                DEFAULT_NQN, DEFAULT_NVME_PORT,
+                                DEFAULT_QMP_PORT, DEFAULT_SMA_PORT,
+                                DEFAULT_SPDK_PORT, DEFAULT_TARGETS,
+                                STORAGE_DIR_PATH)
+
+
+class BaseTest:
+    pass
 
 
 class BaseConfig(ABC):
@@ -42,6 +41,17 @@ class TestConfig(BaseConfig):
         self.debug = self._getenv("DEBUG", "FALSE")
         self.nqn = self._getenv("NQN", DEFAULT_NQN)
         self.cmd_sender_platform = self._getenv("CMD_SENDER_PLATFORM", "ipu")
+        self.targets = self._get_targets()
+
+    def _get_targets(self):
+        raw_targets = self._getenv("TARGETS", "")
+        targets = (
+            raw_targets.replace("[", "")
+                .replace("]", "")
+                .replace(" ", "")
+                .replace('"', "")
+        )
+        return targets.split(",") if targets else DEFAULT_TARGETS
 
 
 class BasePlatformConfig(BaseConfig):

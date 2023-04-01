@@ -27,6 +27,9 @@ HOST_TARGET_IP_ADDRESS=""
 HOST_TARGET_PORT=22
 HOST_TARGET_WORKDIR=""
 
+# TARGETS should be in format ["kvm", "nvme"] or [kvm, nvme]
+TARGETS=["kvm", "nvme"]
+
 SPDK_PORT=""
 NVME_PORT=""
 SMA_PORT=""
