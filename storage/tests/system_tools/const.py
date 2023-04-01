@@ -27,3 +27,6 @@ FIO_IO_PATTERNS = [
     "READ",
     "TRIM",
 ]
+DEFAULT_TARGETS = [
+    "kvm",
+]

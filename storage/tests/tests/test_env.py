@@ -2,11 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+target = "all"
 import os
 
-from ptf.base_tests import BaseTest
 from system_tools.config import (HostTargetConfig, IPUStorageConfig,
-                                 StorageTargetConfig)
+                                 StorageTargetConfig, TestConfig)
+
+if target in TestConfig().targets or target == "all":
+    from ptf.base_tests import BaseTest
+else:
+    from system_tools.config import BaseTest
+
 from system_tools.docker import (CMDSenderContainer, HostTargetContainer,
                                  IPUStorageContainer, StorageTargetContainer)
 from system_tools.terminals import SSHTerminal
