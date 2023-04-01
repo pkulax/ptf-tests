@@ -6,16 +6,12 @@ target = "all"
 import os
 
 from system_tools.config import (HostTargetConfig, IPUStorageConfig,
-                                 StorageTargetConfig, TestConfig)
-
-if target in TestConfig().targets or target == "all":
-    from ptf.base_tests import BaseTest
-else:
-    from system_tools.config import BaseTest
-
+                                 StorageTargetConfig, import_base_test)
 from system_tools.docker import (CMDSenderContainer, HostTargetContainer,
                                  IPUStorageContainer, StorageTargetContainer)
 from system_tools.terminals import SSHTerminal
+
+BaseTest = import_base_test(target)
 
 
 class TestTerminalConnect(BaseTest):
@@ -77,22 +73,22 @@ class TestDeployContainers(BaseTest):
         self.shared_dir = os.path.join(HostTargetConfig().vm_share_dir_path, "shared")
 
     def runTest(self):
-        self.storage_target_terminal.execute(
-            f"sudo rm -rf {self.storage_target_terminal.config.workdir}"
+        terminals = (
+            self.storage_target_terminal,
+            self.ipu_storage_terminal,
+            self.host_target_terminal,
         )
-        self.storage_target_terminal.execute(
-            f"mkdir {self.storage_target_terminal.config.workdir}"
-        )
-
-        cmd = f"cd {self.storage_target_terminal.config.workdir} && git clone --branch {self.branch} {self.repository_url}"
-        self.storage_target_terminal.execute(cmd)
-
-        self.storage_target_terminal.execute(
-            f"ls {self.storage_target_terminal.config.workdir}/ipdk/build"
-        )
-        self.storage_target_terminal.execute(
-            f"cd {self.storage_target_terminal.config.storage_dir} && git log"
-        )
+        for terminal in terminals:
+            cmd = f"sudo rm -rf {self.storage_target_terminal.config.workdir}"
+            terminal.execute(cmd)
+            cmd = f"mkdir -p {self.storage_target_terminal.config.workdir}"
+            terminal.execute(cmd)
+            cmd = f"cd {self.storage_target_terminal.config.workdir} && git clone --branch {self.branch} {self.repository_url}"
+            terminal.execute(cmd)
+            cmd = f"ls {self.storage_target_terminal.config.workdir}/ipdk/build"
+            terminal.execute(cmd)
+            cmd = f"cd {self.storage_target_terminal.config.storage_dir} && git log"
+            terminal.execute(cmd)
 
         self.storage_target_container = StorageTargetContainer()
         self.assertIn(

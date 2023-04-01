@@ -29,6 +29,7 @@ HOST_TARGET_WORKDIR=""
 
 # TARGETS should be in format ["kvm", "nvme"] or [kvm, nvme]
 TARGETS=["kvm", "nvme"]
+QEMU_BINARY=""
 
 SPDK_PORT=""
 NVME_PORT=""

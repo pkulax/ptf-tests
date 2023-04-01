@@ -27,7 +27,9 @@ class VirtualMachine:
         self.socket_path = os.path.join(
             self.platform.terminal.config.vm_share_dir_path, "vm_socket"
         )
-        self.socket_terminal = UnixSocketTerminal(self.platform.terminal, self.socket_path)
+        self.socket_terminal = UnixSocketTerminal(
+            self.platform.terminal, self.socket_path
+        )
 
     def run(self, login, password):
         self.delete()
@@ -46,7 +48,7 @@ class VirtualMachine:
         if self.platform.get_pid_from_port(DEFAULT_HOST_TARGET_SERVICE_PORT_IN_VM):
             self.platform.kill_process_from_port(DEFAULT_HOST_TARGET_SERVICE_PORT_IN_VM)
         self.platform.terminal.execute(
-            f"cd {self.platform.terminal.config.vm_share_dir_path} && rm -rf $(ls)"
+            f"cd {self.platform.terminal.config.vm_share_dir_path} && sudo rm -rf *"
         )
 
     @retry(stop=stop_after_delay(600), reraise=True)
@@ -59,10 +61,10 @@ class VirtualMachine:
         time.sleep(60)
 
     def _login(self, login, password):
-        self.socket_terminal.execute(login, 1)
-        self.socket_terminal.execute(password, 1)
+        self.socket_terminal.execute(login)
+        self.socket_terminal.execute(password)
 
     def get_number_of_virtio_blk_devices(self):
         cmd = "ls -1 /dev"
-        out = self.socket_terminal.execute(cmd, 1)
+        out = self.socket_terminal.execute(cmd)
         return len(re.findall("vd[a-z]+\\b", out))

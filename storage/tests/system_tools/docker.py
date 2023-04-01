@@ -199,6 +199,63 @@ class CMDSenderContainer(DockerContainer):
         )
         return self._terminal.execute(cmd) == "True"
 
+    def create_sender_cmd(self, cmd):
+        return (
+            f"""sudo docker exec {self.id} bash -c 'source /scripts/disk_infrastructure.sh; export PYTHONPATH=/; """
+            f"""{cmd}"""
+            """ '"""
+        )
+
+    def create_nvme_device(
+        self,
+        ipu_platform_ip,
+        host_target_ip,
+        physical_id,
+        sma_port,
+        vm_port,
+    ):
+        cmd = self.create_sender_cmd(
+            f"""create_nvme_device {ipu_platform_ip} {sma_port} {host_target_ip} {vm_port} {physical_id} 0"""
+        )
+        return self._terminal.execute(cmd)
+
+    def attach_device(
+        self,
+        ipu_platform_ip,
+        storage_target_ip,
+        nvme_device_handle,
+        remote_nvme_storage_guid,
+        nvme_port,
+    ):
+        cmd = self.create_sender_cmd(
+            f"""attach_volume {ipu_platform_ip} "{nvme_device_handle}" "{remote_nvme_storage_guid}" nqn.2016-06.io.spdk:cnode0 {storage_target_ip} {nvme_port}"""
+        )
+        return self._terminal.execute(cmd)
+
+    def detach_volume(
+        self,
+        ipu_platform_ip,
+        nvme_device_handle,
+        remote_nvme_storage_guid,
+    ):
+        cmd = self.create_sender_cmd(
+            f"""detach_volume {ipu_platform_ip} "{nvme_device_handle}" "{remote_nvme_storage_guid}" """
+        )
+        return self._terminal.execute(cmd)
+
+    def delete_device(
+        self,
+        ipu_platform_ip,
+        host_target_ip,
+        nvme_device_handle,
+        sma_port,
+        vm_port,
+    ):
+        cmd = self.create_sender_cmd(
+            f"""delete_nvme_device {ipu_platform_ip} {sma_port} {host_target_ip} {vm_port} "{nvme_device_handle}" """
+        )
+        return self._terminal.execute(cmd)
+
 
 class HostTargetContainer(DockerContainer):
     def __init__(self):
