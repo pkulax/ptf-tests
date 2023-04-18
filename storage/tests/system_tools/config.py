@@ -77,20 +77,15 @@ class MainPlatformConfig(BasePlatformConfig):
         )
 
 
-class StorageTargetConfig(MainPlatformConfig):
+class LpConfig(MainPlatformConfig):
     def __init__(self):
-        super().__init__("STORAGE_TARGET")
-
-
-class IPUStorageConfig(MainPlatformConfig):
-    def __init__(self):
-        super().__init__("IPU_STORAGE")
+        super().__init__("LP")
         self.sma_port = self._getenv("SMA_PORT", DEFAULT_SMA_PORT)
 
 
-class HostTargetConfig(MainPlatformConfig):
+class HostConfig(MainPlatformConfig):
     def __init__(self):
-        super().__init__("HOST_TARGET")
+        super().__init__("HOST")
         share_dir_path = self._getenv("SHARE_DIR_PATH", "shared")
         self.vm_share_dir_path = os.path.join(self.workdir, share_dir_path)
         self.host_target_service_port_in_vm = self._getenv(
