@@ -6,8 +6,7 @@ import time
 
 from tenacity import retry, stop_after_delay
 
-from system_tools.config import (HostTargetConfig, IPUStorageConfig,
-                                 StorageTargetConfig, TestConfig)
+from system_tools.config import HostConfig, LpConfig, TestConfig
 from system_tools.const import DEFAULT_HOST_TARGET_SERVICE_PORT_IN_VM
 from system_tools.errors import ContainerNotRunningException
 from system_tools.terminals import SSHTerminal
@@ -73,7 +72,7 @@ class DockerContainer:
 
 class StorageTargetContainer(DockerContainer):
     def __init__(self):
-        terminal = SSHTerminal(StorageTargetConfig())
+        terminal = SSHTerminal(LpConfig())
         cmd = (
             f"cd {terminal.config.storage_dir} && "
             f"AS_DAEMON=true scripts/run_storage_target_container.sh"
@@ -83,8 +82,8 @@ class StorageTargetContainer(DockerContainer):
 
 class IPUStorageContainer(DockerContainer):
     def __init__(self):
-        shared_dir = HostTargetConfig().vm_share_dir_path
-        terminal = SSHTerminal(IPUStorageConfig())
+        shared_dir = HostConfig().vm_share_dir_path
+        terminal = SSHTerminal(LpConfig())
         cmd = (
             f"cd {terminal.config.storage_dir} && "
             f"AS_DAEMON=true SHARED_VOLUME={shared_dir} "
@@ -259,7 +258,7 @@ class CMDSenderContainer(DockerContainer):
 
 class HostTargetContainer(DockerContainer):
     def __init__(self):
-        terminal = SSHTerminal(HostTargetConfig())
+        terminal = SSHTerminal(HostConfig())
         cmd = (
             f"cd {terminal.config.storage_dir} && "
             f"AS_DAEMON=true scripts/run_host_target_container.sh"

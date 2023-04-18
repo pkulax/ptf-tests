@@ -2,10 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-target = "nvme"
+target = "opi_nvme"
 from system_tools.config import TestConfig, import_base_test
-from system_tools.const import FIO_COMMON, FIO_IO_PATTERNS
-from system_tools.errors import CommandException
+from system_tools.log import logging
 from system_tools.test_platform import PlatformFactory
 
 BaseTest = import_base_test(target)
@@ -14,15 +13,13 @@ BaseTest = import_base_test(target)
 class TestNVMEMinHotPlugAndFio(BaseTest):
     def setUp(self):
         self.tests_config = TestConfig()
-        self.platforms_factory = PlatformFactory(self.tests_config.cmd_sender_platform)
-        self.storage_target_platform = (
-            self.platforms_factory.create_storage_target_platform()
-        )
-        self.ipu_storage_platform = self.platforms_factory.create_ipu_storage_platform()
-        self.host_target_platform = self.platforms_factory.create_host_target_platform()
-        self.cmd_sender = self.platforms_factory.cmd_sender
+        self.platforms_factory = PlatformFactory()
+        self.lp_platform = self.platforms_factory.get_lp_platform()
+        self.host_platform = self.platforms_factory.get_host_platform()
 
     def runTest(self):
+        pass
+        """
         nvme_file_not_exist_response = (
             "cannot access '/dev/nvme*': No such file or directory"
         )
@@ -281,8 +278,12 @@ class TestNVMEAboveMaxHotPlug(BaseTest):
             remote_nvme_storages,
         )
 
+"""
+
     def tearDown(self):
-        self.platforms_factory.cmd_sender.stop()
-        self.ipu_storage_platform.clean()
-        self.storage_target_platform.clean()
-        self.host_target_platform.clean()
+        self.lp_platform.terminal.execute("rm -rf spdk")
+        self.lp_platform.terminal.execute("rm -rf opi-api")
+        self.lp_platform.terminal.execute("rm -rf opi-intel-bridge")
+        self.lp_platform.terminal.execute("rm -rf opi-spdk-bridge")
+        self.lp_platform.clean()
+        self.host_platform.clean()

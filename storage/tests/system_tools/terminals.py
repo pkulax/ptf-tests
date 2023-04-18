@@ -3,6 +3,8 @@
 #
 
 from pathlib import Path
+from time import sleep
+from threading import Thread
 from typing import Optional
 
 from paramiko.client import AutoAddPolicy, SSHClient
@@ -80,3 +82,52 @@ class UnixSocketTerminal:
         out = self._execute(cmd, wait_for_secs)
         self._delete_tmp_file()
         return self._clean_out(out)
+
+
+class WaitDeviceThread(Thread):
+    def __init__(self, terminal, dev):
+        Thread.__init__(self)
+        self.terminal = terminal
+        self.dev = dev
+
+    def run(self):
+        cmd = f"""echo ' ' > {self.dev}"""
+        self.terminal.execute(cmd)
+
+
+class DeviceThread(WaitDeviceThread):
+    def __init__(self, terminal, dev, cmd, lines):
+        WaitDeviceThread.__init__(self, terminal, dev)
+        self._cmd = cmd
+        self._lines = lines
+
+        self.response = None
+
+    def run(self):
+        self.response = self.terminal.execute(
+            f"""echo '{self._cmd}' > {self.dev} && cat {self.dev} | head -n {self._lines}"""
+        )
+
+
+class DeviceTerminal:
+    def __init__(self, ssh_terminal, dev):
+        self.ssh_terminal = ssh_terminal
+        self.dev = dev
+
+    def execute(self, cmd, lines=0):
+        cmd_thread = DeviceThread(self.ssh_terminal, self.dev, cmd, lines)
+        cmd_thread.start()
+        sleep(1)
+        while cmd_thread.is_alive():
+            waiting_thread = WaitDeviceThread(self.ssh_terminal, self.dev)
+            waiting_thread.start()
+            waiting_thread.join()
+        cmd_thread.join()
+        return cmd_thread.response
+
+    def login(self):
+        for i in range(4):
+            self.execute("root")
+
+    def logout(self):
+        self.execute("exit")

@@ -19,7 +19,3 @@ class MissingDependencyException(Exception):
 
 class BusyPortException(Exception):
     """The requested port is occupied by another process"""
-
-
-class CMDSenderPlatformNameException(Exception):
-    """Incorrect CMD Sender platform"""
