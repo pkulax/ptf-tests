@@ -59,7 +59,7 @@ class UnixSocketTerminal:
     def _delete_tmp_file(self):
         self.ssh_terminal.execute(f"rm -rf {self._dest_file}")
 
-    def _execute(self, cmd, wait_for_secs=2):
+    def _execute(self, cmd, wait_for_secs=1):
         cmd = (
             f"""cd /tmp && sudo python -c 'from socket_functions import *; """
             f"""out = send_command_over_unix_socket("{self.sock}", "{cmd}", {wait_for_secs}); """
@@ -70,9 +70,12 @@ class UnixSocketTerminal:
     @staticmethod
     def _clean_out(out):
         split_out = out.split("\r\n\x1b[?2004l\r")
-        return split_out[0].replace("\r" "") if len(split_out) == 3 else out
+        split_out = split_out[1] if len(split_out) == 2 else out
+        split_out = split_out.split("\r\n\x1b[?2004h")
+        split_out = split_out[0] if len(split_out) == 2 else split_out[0]
+        return split_out.replace("\r", "")
 
-    def execute(self, cmd, wait_for_secs=2):
+    def execute(self, cmd, wait_for_secs=1):
         self._save_tmp_file()
         out = self._execute(cmd, wait_for_secs)
         self._delete_tmp_file()

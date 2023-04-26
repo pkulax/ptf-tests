@@ -15,10 +15,6 @@ from system_tools.const import (DEFAULT_HOST_TARGET_SERVICE_PORT_IN_VM,
                                 STORAGE_DIR_PATH)
 
 
-class BaseTest:
-    pass
-
-
 class BaseConfig(ABC):
     load_dotenv()
 
@@ -44,14 +40,13 @@ class TestConfig(BaseConfig):
         self.targets = self._get_targets()
 
     def _get_targets(self):
-        raw_targets = self._getenv("TARGETS", "")
-        targets = (
-            raw_targets.replace("[", "")
-                .replace("]", "")
-                .replace(" ", "")
-                .replace('"', "")
-        )
-        return targets.split(",") if targets else DEFAULT_TARGETS
+        targets = self._getenv("TARGETS", DEFAULT_TARGETS)
+        if isinstance(targets, str):
+            chars_to_delete = """[]"' """
+            for char in chars_to_delete:
+                targets = targets.replace(char, "")
+            targets = targets.split(",")
+        return list(map(lambda x: x.lower(), targets))
 
 
 class BasePlatformConfig(BaseConfig):
@@ -101,3 +96,17 @@ class HostTargetConfig(MainPlatformConfig):
         self.host_target_service_port_in_vm = self._getenv(
             "HOST_TARGET_SERVICE_PORT_IN_VM", DEFAULT_HOST_TARGET_SERVICE_PORT_IN_VM
         )
+        self.qemu_binary = self._getenv("QEMU_BINARY", None)
+
+
+class BaseTest:
+    pass
+
+
+def import_base_test(target):
+    target = target.lower()
+    if target in TestConfig().targets or target == "all":
+        from ptf.base_tests import BaseTest
+    else:
+        from system_tools.config import BaseTest
+    return BaseTest

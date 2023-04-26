@@ -17,6 +17,7 @@ class RemoteNvmeStorage:
     """Helper class
     self.guid: volume_id
     self.nqn: subsystem nqn
+    Malloc
     """
 
     def __init__(self, ip_address, port, nqn, guid):
@@ -26,7 +27,7 @@ class RemoteNvmeStorage:
 
 
 class ServiceAddress:
-    """storage_target_ip + nvme_port"""
+    """storage_target_ip + vm_port(50051)"""
 
     def __init__(self, ip_address, port):
         self.ip_address = ip_address
@@ -41,7 +42,7 @@ class IpuStorageDevice:
         ipu_platform,
         host_target_address_service,
     ):
-        self._device_handle = device_handle
+        self._device_handle = device_handle  # eg. nvme0
         self._remote_nvme_storage = remote_nvme_storage
         self._ipu_platform = ipu_platform
         self._host_target_address_service = host_target_address_service
@@ -61,6 +62,41 @@ class VirtioBlkDevice(IpuStorageDevice):
             self._host_target_address_service,
             self._device_handle,
             self._ipu_platform.sma_port,
+        )
+
+
+class NvmeDevice(IpuStorageDevice):
+    def delete(self, cmd_sender):
+        return cmd_sender.delete_virtio_blk_device(
+            self._ipu_platform.get_ip_address(),
+            self._host_target_address_service,
+            self._device_handle,
+            self._ipu_platform.sma_port,
+        )
+
+    def attach_volume(self, cmd_sender, storage_target_ip, nvme_port):
+        return cmd_sender.attach_device(
+            self._ipu_platform.get_ip_address(),
+            storage_target_ip,
+            self._device_handle,  # nvme0
+            self._remote_nvme_storage.guid,  # malloc0
+            nvme_port,
+        )
+
+    def detach_volume(self, cmd_sender):
+        return cmd_sender.detach_volume(
+            self._ipu_platform.get_ip_address(),
+            self._device_handle,
+            self._remote_nvme_storage.guid,
+        )
+
+    def delete_device(self, cmd_sender):
+        return cmd_sender.delete_device(
+            self._ipu_platform.get_ip_address(),
+            self._host_target_address_service.ip_address,
+            self._device_handle,
+            self._ipu_platform.sma_port,
+            self._host_target_address_service.port,
         )
 
 
@@ -241,6 +277,20 @@ class IPUStoragePlatform(BaseTestPlatform):
             fio_args,
         )
 
+    def create_nvme_device(self, host_target_address_service, volume, num):
+        return NvmeDevice(
+            self.cmd_sender.create_nvme_device(
+                self.get_ip_address(),
+                host_target_address_service.ip_address,
+                num,
+                self.sma_port,
+                host_target_address_service.port,
+            ),
+            volume,
+            self,
+            host_target_address_service,
+        )
+
     def create_virtio_blk_devices(
         self,
         host_target_address_service,
@@ -279,6 +329,16 @@ class IPUStoragePlatform(BaseTestPlatform):
             range(len(volumes)),
         )
 
+    def create_nvme_devices_sequentially(
+        self,
+        host_target_address_service,
+        volumes,
+    ):
+        return [
+            self.create_nvme_device(host_target_address_service, volume, n)
+            for n, volume in enumerate(volumes)
+        ]
+
     def delete_virtio_blk_devices(self, devices_handles):
         return [
             device_handle.delete(self.cmd_sender) for device_handle in devices_handles
@@ -310,6 +370,12 @@ class HostTargetPlatform(BaseTestPlatform):
         return ServiceAddress(
             self.get_ip_address(), self.host_target_service_port_in_vm()
         )
+
+    def check_block_devices(self):
+        return self.vm.socket_terminal.execute("lsblk")
+
+    def check_nvme_dev_files(self):
+        return self.vm.socket_terminal.execute("ls /dev/nvme*")
 
 
 class PlatformFactory:
