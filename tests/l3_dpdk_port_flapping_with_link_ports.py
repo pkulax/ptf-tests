@@ -187,7 +187,7 @@ class Dpdk_Link_Flapping(BaseTest):
             self.config_data["port"][1]["mac_local"],
         )
         # ping test between VM to link port
-        time.sleep(5)
+        time.sleep(15)
         log.info("------------------------------")
         log.info("Ping Test from VM to Link port")
         log.info("------------------------------")

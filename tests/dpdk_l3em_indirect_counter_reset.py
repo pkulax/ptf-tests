@@ -212,7 +212,7 @@ class IPDK_L3EM_INDIRECT_COUNTER_RESET(BaseTest):
                             f"FAIL: The {flow} of {cnt_table_name} is not reset to 0"
                         )
                     else:
-                        self.passed(f"PASS: reset {flow} bytes to 0 ")
+                        log.passed(f"PASS: reset {flow} bytes to 0 ")
 
                 if cnt_table_name == "ipv4_host_tbl_flow_counter_packets":
                     if cnt1[cnt_table_name][j]["packets"] <= 0:
@@ -221,7 +221,7 @@ class IPDK_L3EM_INDIRECT_COUNTER_RESET(BaseTest):
                             f"FAIL: The packet counter {cnt_table_name} before reset should be greater than 0"
                         )
                     else:
-                        self.passed(
+                        log.passed(
                             f"PASS: The packet counter of {cnt_table_name} before reset is {cnt1[cnt_table_name][j]['packets']}"
                         )
 
