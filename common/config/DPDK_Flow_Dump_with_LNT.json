@@ -199,13 +199,15 @@
     ]
   },
   "flow_dump_table": [
-      "table=linux_networking_control.vxlan_encap_mod_table vendormeta_mod_data_ptr=0x000000 actions=linux_networking_control.vxlan_encap(src_addr=0x28010101dst_addr=0x28010102dst_port=0x12b5vni=0x000000)",
-      "table=linux_networking_control.ipv4_tunnel_term_table tunnel_type=0x02,ipv4_src=0x28010102,ipv4_dst=0x28010101 actions=linux_networking_control.decap_outer_ipv4(tunnel_id=0x000000)",
-      "table=linux_networking_control.handle_rx_control_pkts_table istd.input_port=0x00000002 actions=linux_networking_control.set_control_dest(port_id=0x00000003)",
-      "table=linux_networking_control.handle_tx_control_vlan_pkts_table istd.input_port=0x00000006,local_metadata.vlan_id=0x0001 actions=linux_networking_control.pop_vlan_fwd(port=0x00000000)",
-      "table=linux_networking_control.handle_tx_control_vlan_pkts_table istd.input_port=0x00000006,local_metadata.vlan_id=0x0002 actions=linux_networking_control.pop_vlan_fwd(port=0x00000001)",
-      "table=linux_networking_control.handle_tx_control_pkts_table istd.input_port=0x00000000 actions=linux_networking_control.push_vlan_fwd(port=0x00000006vlan_tag=0x0001)",
-      "table=linux_networking_control.handle_tx_control_pkts_table istd.input_port=0x00000001 actions=linux_networking_control.push_vlan_fwd(port=0x00000006vlan_tag=0x0002)",
-      "table=linux_networking_control.handle_tx_control_pkts_table istd.input_port=0x00000003 actions=linux_networking_control.set_control_dest(port_id=0x00000002)"
+          
+          "table=linux_networking_control.vxlan_encap_mod_table vendormeta_mod_data_ptr=0x000000",
+          "table=linux_networking_control.ipv4_tunnel_term_table tunnel_type=0x02,ipv4_src=0x28010102,ipv4_dst=0x28010101",
+          "table=linux_networking_control.handle_rx_control_pkts_table istd.input_port=0x00000002",
+          "table=linux_networking_control.handle_tx_control_vlan_pkts_table istd.input_port=0x00000006,local_metadata.vlan_id=0x0001",
+          "table=linux_networking_control.handle_tx_control_vlan_pkts_table istd.input_port=0x00000006,local_metadata.vlan_id=0x0002",
+          "table=linux_networking_control.handle_tx_control_pkts_table istd.input_port=0x00000000",
+          "table=linux_networking_control.handle_tx_control_pkts_table istd.input_port=0x00000001",
+          "table=linux_networking_control.handle_tx_control_pkts_table istd.input_port=0x00000003"
+
   ]
 }
