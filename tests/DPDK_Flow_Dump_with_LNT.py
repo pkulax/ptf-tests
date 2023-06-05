@@ -164,6 +164,8 @@ class DPDK_Flow_Dump_with_LNT(BaseTest):
         # Get dump entries table
         log.info("Get flow dump table entry")
         dump_table = p4rt_ctl.p4rt_ctl_dump_entities(self.config_data["switch"])
+        print(dump_table)
+
         # Verify each entry
         log.info("Verify each entry")
         if len(dump_table[1:-1]) != len(self.config_data["flow_dump_table"]):
