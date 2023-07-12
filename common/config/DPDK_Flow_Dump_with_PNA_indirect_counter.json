@@ -72,7 +72,7 @@
     "default_byte": 98
   },
   "flow_dump_table": [
-    "table=MainControlImpl.ipv4_host hdr.ipv4.dstAddr=0x01010101",
-    "table=MainControlImpl.ipv4_host hdr.ipv4.dstAddr=0x02020202"
+    "table=MainControlImpl.ipv4_host hdr.ipv4.dstAddr=0x01010101 actions=MainControlImpl.send_with_bytes_incr(port=0x00000000idx=0x0001)",
+    "table=MainControlImpl.ipv4_host hdr.ipv4.dstAddr=0x02020202 actions=MainControlImpl.send_with_bytes_incr(port=0x00000001idx=0x0002)"
   ]
 }
