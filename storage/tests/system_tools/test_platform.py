@@ -2,14 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-from system_tools.config import (HostTargetConfig, IPUStorageConfig,
-                                 StorageTargetConfig)
-from system_tools.docker import (CMDSenderContainer, Docker,
-                                 HostTargetContainer, IPUStorageContainer,
-                                 StorageTargetContainer)
-from system_tools.errors import (CMDSenderPlatformNameException,
-                                 MissingDependencyException)
-from system_tools.terminals import SSHTerminal
+import re
+
+from system_tools.config import HostConfig, LpConfig
+from system_tools.const import ACC_INTERNAL_IP, LP_INTERNAL_IP
+from system_tools.errors import MissingDependencyException
+from system_tools.log import logging
+from system_tools.terminals import DeviceTerminal, SSHTerminal
 from system_tools.vm import VirtualMachine
 
 
@@ -103,13 +102,19 @@ class NvmeDevice(IpuStorageDevice):
 class BaseTestPlatform:
     """A base class used to represent operating system with needed libraries"""
 
-    def __init__(self, terminal, cmd_sender=None):
+    def __init__(self, terminal):
         self.terminal = terminal
         self.config = self.terminal.config
         self.pms = "dnf" if self._is_dnf() else "apt-get" if self._is_apt() else None
         self.system = self._os_system()
-        self.docker = Docker(terminal)
-        self.cmd_sender = cmd_sender
+        # self.docker = Docker(terminal)
+        self._install_kernel_headers()
+
+    def _install_kernel_headers(self):
+        logging.ptf_info(f"Start installing kernel headers")
+        raw = self.terminal.execute("sudo dnf install -y kernel-headers")
+        logging.ptf_info(f"Kernel headers was installed")
+        return raw
 
     def get_ip_address(self):
         return self.config.ip_address
@@ -221,7 +226,7 @@ class BaseTestPlatform:
         self.terminal.execute(f"sudo kill -9 {pid}")
 
     def clean(self):
-        self.docker.delete_containers()
+        pass
 
     def is_port_free(self, port):
         return not bool(
@@ -233,63 +238,112 @@ class BaseTestPlatform:
         return "spdk_tgt" in out
 
 
-class StorageTargetPlatform(BaseTestPlatform):
-    def __init__(self, cmd_sender=None):
-        super().__init__(SSHTerminal(StorageTargetConfig()), cmd_sender)
-        self.docker.add_container("storage_target_container", StorageTargetContainer())
+class LinkPartnerPlatform(BaseTestPlatform):
+    def __init__(self):
+        super().__init__(SSHTerminal(LpConfig()))
+        self.imc_device = DeviceTerminal(self.terminal, "/dev/ttyUSB2")
+        self.acc_device = DeviceTerminal(self.terminal, "/dev/ttyUSB0")
 
-    def create_subsystem(self, nqn: str, port_to_expose: int, storage_target_port: int):
-        return self.cmd_sender.create_subsystem(
-            self.get_ip_address(),
-            nqn,
-            port_to_expose,
-            storage_target_port,
+    def set(self):
+        self.clone()
+        self.create_hugepages()
+        self.set_internal_ips()
+
+    def clone(self):
+        self.terminal.execute("git clone https://github.com/spdk/spdk --recursive")
+        self.terminal.execute("git clone https://github.com/opiproject/opi-api")
+        self.terminal.execute(
+            "git clone https://github.com/opiproject/opi-intel-bridge"
+        )
+        self.terminal.execute("git clone https://github.com/opiproject/opi-spdk-bridge")
+
+    def create_hugepages(self):
+        self.terminal.execute(
+            "sudo bash -c 'echo 2048 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages'"
         )
 
+    def _get_network_interfaces_names(self):
+        raw = self.terminal.execute("ip a")
+        return re.findall("\d: (.*?):", raw)
+
+    def _get_acc_network_interfaces_names(self):
+        raw = self.acc_device.execute("ip a", 60)
+        return re.findall("\d: (.*?):", raw)
+
+    def _set_acc_ip(self, ip, interface):
+        self.acc_device.execute(f"ip a add {ip} dev {interface}")
+        self.acc_device.execute(f"ip link set dev {interface} up")
+
+    def _unset_acc_ip(self, ip, interface):
+        self.acc_device.execute(f"ip a del {ip} dev {interface}")
+        self.acc_device.execute(f"ip link set dev {interface} up")
+
+    def _set_ip(self, ip, interface):
+        self.terminal.execute(f"sudo ip a add {ip} dev {interface}")
+        self.terminal.execute(f"sudo ip link set dev {interface} up")
+
+    def _unset_ip(self, ip, interface):
+        self.terminal.execute(f"sudo ip a del {ip} dev {interface}")
+        self.terminal.execute(f"sudo ip link set dev {interface} up")
+
+    def _is_lp_and_acc_ip_correct(self):
+        try:
+            self.terminal.execute("ping -w 4 -c 2 200.1.1.3")
+            return True
+        except:
+            return False
+
+    def set_internal_ips(self):
+        logging.ptf_info(f"Start setting internal ips")
+        if self._is_lp_and_acc_ip_correct():
+            logging.ptf_info(f"Internal ips is setting correctly")
+            return True
+        self.imc_device.execute("python3 /usr/bin/scripts/cfg_acc_apf_x2.py", 10)
+        self.acc_device.execute("systemctl stop NetworkManager")
+
+        lp_interfaces = [
+            interface
+            for interface in self._get_network_interfaces_names()
+            if interface != "lo"
+        ]
+        acc_interfaces = [
+            interface
+            for interface in self._get_acc_network_interfaces_names()
+            if interface != "lo"
+        ]
+
+        for lp_interface in lp_interfaces:
+            if not self._is_lp_and_acc_ip_correct():
+                self._set_ip(LP_INTERNAL_IP, lp_interface)
+            for acc_interface in acc_interfaces:
+                if not self._is_lp_and_acc_ip_correct():
+                    self._set_acc_ip(ACC_INTERNAL_IP, acc_interface)
+                if not self._is_lp_and_acc_ip_correct():
+                    self._unset_acc_ip(ACC_INTERNAL_IP, acc_interface)
+            if not self._is_lp_and_acc_ip_correct():
+                self._unset_ip(LP_INTERNAL_IP, lp_interface)
+        end = self._is_lp_and_acc_ip_correct()
+        if end:
+            logging.ptf_info(f"Internal ips is setting correctly")
+        else:
+            logging.error(f"Internal ips is not setting correctly")
+        return self._is_lp_and_acc_ip_correct()
+
+    def create_subsystem(self, nqn: str, port_to_expose: int, storage_target_port: int):
+        pass
+
     def create_ramdrives(self, ramdrives_number, port, nqn, spdk_port):
-        nvme_storages = []
-        for i in range(ramdrives_number):
-            nvme_storage = RemoteNvmeStorage(
-                self.get_ip_address(),
-                port,
-                nqn,
-                self.cmd_sender.create_ramdrive(
-                    i, self.get_ip_address(), nqn, spdk_port
-                ),
-            )
-            nvme_storages.append(nvme_storage)
-        return nvme_storages
-
-
-class IPUStoragePlatform(BaseTestPlatform):
-    def __init__(self, cmd_sender=None):
-        super().__init__(SSHTerminal(IPUStorageConfig()), cmd_sender)
-        self.docker.add_container("ipu_storage_container", IPUStorageContainer())
+        pass
 
     @property
     def sma_port(self):
         return self.config.sma_port
 
     def run_fio(self, host_target_ip, device_handle, fio_args):
-        return self.cmd_sender.run_fio(
-            host_target_ip,
-            device_handle,
-            fio_args,
-        )
+        pass
 
     def create_nvme_device(self, host_target_address_service, volume, num):
-        return NvmeDevice(
-            self.cmd_sender.create_nvme_device(
-                self.get_ip_address(),
-                host_target_address_service.ip_address,
-                num,
-                self.sma_port,
-                host_target_address_service.port,
-            ),
-            volume,
-            self,
-            host_target_address_service,
-        )
+        pass
 
     def create_virtio_blk_devices(
         self,
@@ -297,103 +351,63 @@ class IPUStoragePlatform(BaseTestPlatform):
         volumes,
         physical_ids,
     ):
-        device_handles = []
-        for volume, physical_id in zip(volumes, physical_ids):
-            device_handles.append(
-                VirtioBlkDevice(
-                    self.cmd_sender.create_virtio_blk_device(
-                        self.get_ip_address(),
-                        host_target_address_service,
-                        volume.guid,
-                        physical_id,
-                        volume.nvme_controller_address.ip_address,
-                        volume.nvme_controller_address.port,
-                        volume.nqn,
-                        self.sma_port,
-                    ),
-                    volume,
-                    self,
-                    host_target_address_service,
-                )
-            )
-        return device_handles
+        pass
 
     def create_virtio_blk_devices_sequentially(
         self,
         host_target_address_service,
         volumes,
     ):
-        return self.create_virtio_blk_devices(
-            host_target_address_service,
-            volumes,
-            range(len(volumes)),
-        )
+        pass
 
     def create_nvme_devices_sequentially(
         self,
         host_target_address_service,
         volumes,
     ):
-        return [
-            self.create_nvme_device(host_target_address_service, volume, n)
-            for n, volume in enumerate(volumes)
-        ]
+        pass
 
     def delete_virtio_blk_devices(self, devices_handles):
-        return [
-            device_handle.delete(self.cmd_sender) for device_handle in devices_handles
-        ]
+        pass
 
     def clean(self):
         # TODO delete all alocated devices
         return super().clean()
 
 
-class HostTargetPlatform(BaseTestPlatform):
-    def __init__(self, cmd_sender=None):
-        super().__init__(SSHTerminal(HostTargetConfig()), cmd_sender)
-        self.docker.add_container("host_target_container", HostTargetContainer())
-        self.vm = VirtualMachine(self)
-        self.vm.run("root", "root")
+class HostPlatform(BaseTestPlatform):
+    def __init__(self):
+        super().__init__(SSHTerminal(HostConfig()))
+        self.vm = None
+
+    def set(self, run_vm=False):
+        if run_vm:
+            self.vm = VirtualMachine(self)
+            self.vm.run("root", "root")
 
     def get_number_of_virtio_blk_devices(self):
-        return self.vm.get_number_of_virtio_blk_devices()
-
-    def clean(self):
-        super().clean()
-        self.vm.delete()
+        pass
 
     def host_target_service_port_in_vm(self):
-        return self.config.host_target_service_port_in_vm
+        pass
 
     def get_service_address(self):
-        return ServiceAddress(
-            self.get_ip_address(), self.host_target_service_port_in_vm()
-        )
+        pass
 
     def check_block_devices(self):
-        return self.vm.socket_terminal.execute("lsblk")
+        pass
 
     def check_nvme_dev_files(self):
-        return self.vm.socket_terminal.execute("ls /dev/nvme*")
+        pass
 
 
 class PlatformFactory:
-    def __init__(self, cmd_sender_platform_name):
-        if cmd_sender_platform_name == "ipu":
-            self.cmd_sender = CMDSenderContainer(IPUStorageConfig())
-        elif cmd_sender_platform_name == "storage-target":
-            self.cmd_sender = CMDSenderContainer(StorageTargetConfig())
-        elif cmd_sender_platform_name == "host":
-            self.cmd_sender = CMDSenderContainer(HostTargetConfig())
-        else:
-            raise CMDSenderPlatformNameException
+    def __init__(self):
+        self.lp_platform = LinkPartnerPlatform()
+        self.host_platform = HostPlatform()
 
-    def create_ipu_storage_platform(self):
-        return IPUStoragePlatform(self.cmd_sender)
+    def get_host_platform(self):
+        return self.host_platform
 
-    def create_storage_target_platform(self):
-        return StorageTargetPlatform(self.cmd_sender)
-
-    def create_host_target_platform(self):
-        return HostTargetPlatform(self.cmd_sender)
+    def get_lp_platform(self):
+        return self.lp_platform
