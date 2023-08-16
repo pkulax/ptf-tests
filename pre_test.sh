@@ -41,7 +41,7 @@ export LD_LIBRARY_PATH=$IPDK_RECIPE/install/lib/:$SDE_INSTALL/lib:$SDE_INSTALL/l
 export PATH=$PATH:$IPDK_RECIPE/install/bin:$DEPEND_INSTALL/bin:$DEPEND_INSTALL/sbin
 export RUN_OVS=$IPDK_RECIPE/install
 
-source $IPDK_RECIPE/scripts/dpdk/setup_env.sh $IPDK_RECIPE $SDE_INSTALL $DEPEND_INSTALL
+source $IPDK_RECIPE/install/sbin/setup_env.sh $IPDK_RECIPE $SDE_INSTALL $DEPEND_INSTALL
 
 echo "starting ovs"
 mkdir -p $IPDK_RECIPE/install/var/run/openvswitch
@@ -51,7 +51,7 @@ $IPDK_RECIPE/install/sbin/ovsdb-server  --remote=punix:$RUN_OVS/var/run/openvswi
 $IPDK_RECIPE/install/sbin/ovs-vswitchd --detach --no-chdir unix:$RUN_OVS/var/run/openvswitch/db.sock --mlockall --log-file=/tmp/ovs-vswitchd.log
 
 echo "set hugepages"
-$IPDK_RECIPE/scripts/dpdk/set_hugepages.sh
+$IPDK_RECIPE/install/sbin/set_hugepages.sh
 
 rm -rf /usr/share/stratum/dpdk/dpdk_skip_p4.conf
 cp common/p4c_artifacts/pna_tcp_connection_tracking/dpdk_skip_p4.conf /usr/share/stratum/dpdk/ 
