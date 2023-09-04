@@ -3,10 +3,14 @@
 #
 
 import re
+import time
 
-from system_tools.config import HostConfig, LpConfig
-from system_tools.const import ACC_INTERNAL_IP, LP_INTERNAL_IP
-from system_tools.errors import MissingDependencyException
+from system_tools.config import DockerConfig, HostConfig, LpConfig
+from system_tools.const import (ACC_INTERNAL_IP, CONTROLLERS_NUMBER,
+                                LP_INTERNAL_IP, SPDK_BDEV_BASE,
+                                SPDK_BDEV_BLOCK_SIZE, SPDK_BDEV_NUM_BLOCKS,
+                                SPDK_REP, SPDK_SNQN_BASE, SPDK_VERSION)
+from system_tools.errors import CommandException, MissingDependencyException
 from system_tools.log import logging
 from system_tools.terminals import DeviceTerminal, SSHTerminal
 from system_tools.vm import VirtualMachine
@@ -107,14 +111,56 @@ class BaseTestPlatform:
         self.config = self.terminal.config
         self.pms = "dnf" if self._is_dnf() else "apt-get" if self._is_apt() else None
         self.system = self._os_system()
-        # self.docker = Docker(terminal)
         self._install_kernel_headers()
+
+    def change_cpu_performance_scaling(self):
+        try:
+            for i in range(int(self.terminal.execute("nproc"))):
+                freq = self.terminal.execute(
+                    f"cat /sys/devices/system/cpu/cpu{i}/cpufreq/cpuinfo_max_freq"
+                )
+                scaling_max_freq = (
+                    f"/sys/devices/system/cpu/cpu{i}/cpufreq/scaling_max_freq"
+                )
+                self.terminal.execute(
+                    f"""echo -e '{freq}' | sudo tee {scaling_max_freq}"""
+                )
+                scaling_min_freq = (
+                    f"/sys/devices/system/cpu/cpu{i}/cpufreq/scaling_min_freq"
+                )
+                self.terminal.execute(
+                    f"""echo -e '{freq}' | sudo tee {scaling_min_freq}"""
+                )
+
+                scaling_governor = (
+                    f"/sys/devices/system/cpu/cpu{i}/cpufreq/scaling_governor"
+                )
+                self.terminal.execute(
+                    f"""echo -e performance | sudo tee {scaling_governor}"""
+                )
+                energy_performance_preference = f"/sys/devices/system/cpu/cpu{i}/cpufreq/energy_performance_preference"
+                self.terminal.execute(
+                    f"""echo -e performance | sudo tee {energy_performance_preference}"""
+                )
+        except CommandException:
+            logging.error(f"If permission denied or file not exist is ok")
 
     def _install_kernel_headers(self):
         logging.ptf_info(f"Start installing kernel headers")
         raw = self.terminal.execute("sudo dnf install -y kernel-headers")
-        logging.ptf_info(f"Kernel headers was installed")
+        logging.ptf_info(f"Kernel headers installed")
         return raw
+
+    def get_cpus_to_use(self):
+        node = 1
+        try:
+            logging.ptf_info(f"Start get cpus to use")
+            node_cpus = self.terminal.execute(
+                f"""numactl --cpunodebind {node} --show | grep physcpubind"""
+            ).split()
+            return [int(cpu) for cpu in node_cpus[1:17]]  # first 16 cpus
+        except CommandException:
+            logging.error(f"export CPUS_TO_USE")
 
     def get_ip_address(self):
         return self.config.ip_address
@@ -161,27 +207,6 @@ class BaseTestPlatform:
     def _is_qemu(self) -> bool:
         return True
 
-    def _install_libguestfs_tools(self) -> bool:
-        """Installs libguestfs-tools for a specific OS"""
-
-        program = (
-            "libguestfs-tools" if self.system == "ubuntu" else "libguestfs-tools-c"
-        )
-        out = self.terminal.execute(f"sudo {self.pms} install -y {program}")
-        return bool(out)
-
-    def _install_wget(self) -> bool:
-        out = self.terminal.execute(f"sudo {self.pms} install -y wget")
-        return bool(out)
-
-    def _change_vmlinuz(self) -> bool:
-        """Changes the mode of /boot/vmlinuz-*"""
-
-        _, stdout, stderr = self.terminal.client.exec_command(
-            "sudo chmod +r /boot/vmlinuz-*"
-        )
-        return not stdout.read().decode() or stderr.read().decode()
-
     def _set_security_policies(self) -> bool:
         cmd = (
             "sudo setenforce 0"
@@ -193,9 +218,58 @@ class BaseTestPlatform:
             "disabled" in stdout.read().decode() or "disabled" in stderr.read().decode()
         )
 
-    # TODO add implementation
     def _install_docker(self):
-        pass
+        logging.ptf_info(f"Start installing docker")
+        return self.terminal.execute("sudo dnf install -y docker")
+        logging.ptf_info(f"Docker is installed")
+
+    def _set_docker(self):
+        docker_config = DockerConfig()
+        filepath = "/etc/systemd/system/docker.service.d/http-proxy.conf"
+        logging.ptf_info(f"Start setting docker service")
+        self.terminal.execute("sudo mkdir -p /etc/systemd/system/docker.service.d")
+        # proxies
+        env = (
+            f"""[Service]\n"""
+            f"""Environment="HTTP_PROXY="{docker_config.http_proxy}"\n"""
+            f"""Environment="HTTPS_PROXY={docker_config.https_proxy}"\n"""
+            f"""Environment="http_proxy={docker_config.http_proxy}"\n"""
+            f"""Environment="https_proxy={docker_config.https_proxy}"\n"""
+            f"""Environment="FTP_PROXY={docker_config.ftp_proxy}"\n"""
+            f'''Environment="ftp_proxy={docker_config.ftp_proxy}"'''
+        )
+        self.terminal.execute(f"""echo -e '{env}' | sudo tee {filepath}""")
+        self.terminal.execute("sudo systemctl daemon-reload")
+        self.terminal.execute("sudo systemctl restart docker")
+        # cgroups
+        try:
+            self.terminal.execute("sudo mkdir /sys/fs/cgroup/systemd")
+            self.terminal.execute(
+                "sudo mount -t cgroup -o none,name=systemd cgroup /sys/fs/cgroup/systemd"
+            )
+        except CommandException:
+            pass
+
+        logging.ptf_info(f"Docker service is setting")
+
+    def _install_spdk_prerequisites(self):
+        logging.ptf_info(f"Install spdk prerequisites")
+        self.terminal.execute("cd spdk && sudo ./scripts/pkgdep.sh")
+        self.terminal.execute("cd spdk && sudo ./configure --with-vfio-user")
+        self.terminal.execute("cd spdk && sudo make")
+        logging.ptf_info(f"spdk prerequisites installed")
+
+    def _create_transports(self):
+        logging.ptf_info(f"Create transports")
+        directory = "cd spdk/scripts/"
+        cmd1 = "./rpc.py -s /var/tmp/spdk2.sock nvmf_create_transport -t tcp"
+        cmd2 = "./rpc.py -s /var/tmp/spdk2.sock nvmf_create_transport -t vfiouser"
+        cmd3 = "./rpc.py nvmf_create_transport -t tcp"
+        cmd4 = "./rpc.py nvmf_create_transport -t vfiouser"
+        self.terminal.execute(f"cd {directory} && sudo {cmd1}")
+        self.terminal.execute(f"cd {directory} && sudo {cmd2}")
+        self.terminal.execute(f"cd {directory} && sudo {cmd3}")
+        self.terminal.execute(f"cd {directory} && sudo {cmd4}")
 
     def check_system_setup(self):
         """Overwrite this method in specific platform if you don't want check all setup"""
@@ -245,21 +319,260 @@ class LinkPartnerPlatform(BaseTestPlatform):
         self.acc_device = DeviceTerminal(self.terminal, "/dev/ttyUSB0")
 
     def set(self):
-        self.clone()
-        self.create_hugepages()
+        self.imc_device.login()
+        self.acc_device.login()
         self.set_internal_ips()
+        self.change_cpu_performance_scaling()
+        self.set_spdk()
+        mask = self.find_spdk_mask()
+        lp_rpc = "/home/berta/spdk/scripts/rpc.py"
+        self.set_nvmf_tgt(mask, lp_rpc)
+        self.create_devices(lp_rpc)
+        self.prepare_acc()
+        acc_rpc = "/opt/ssa/rpc.py"
+        self.start_ssa(acc_rpc)
+        self.run_npi_transport(acc_rpc)
+        self.create_pf_device(acc_rpc)
+        self.create_subsystems(acc_rpc, CONTROLLERS_NUMBER)
+        self.create_controllers(acc_rpc, CONTROLLERS_NUMBER)
+        self.add_remote_controllers(acc_rpc, CONTROLLERS_NUMBER)
+        self.create_namespaces(acc_rpc, CONTROLLERS_NUMBER)
 
-    def clone(self):
-        self.terminal.execute("git clone https://github.com/spdk/spdk --recursive")
-        self.terminal.execute("git clone https://github.com/opiproject/opi-api")
-        self.terminal.execute(
-            "git clone https://github.com/opiproject/opi-intel-bridge"
-        )
-        self.terminal.execute("git clone https://github.com/opiproject/opi-spdk-bridge")
+    def create_subsystems(self, rpc_path, num):
+        time.sleep(5)
+        try:
+            logging.ptf_info(f"Create subsystems")
+            for i in range(1, num + 1):
+                self.terminal.execute(
+                    f"ssh root@200.1.1.3 {rpc_path} nvmf_create_subsystem nqn.2019-07.io.spdk:npi-0.{i} -a"
+                )
+                time.sleep(2)
+            logging.ptf_info(f"End creating subsystems")
+        except CommandException:
+            logging.error(f"Subsystems didn't create")
+
+    def create_controllers(self, rpc_path, num):
+        time.sleep(5)
+        nvmf_queues = 25
+        try:
+            logging.ptf_info(f"Create controllers")
+            for i in range(1, num + 1):
+                self.terminal.execute(
+                    f"ssh root@200.1.1.3 {rpc_path} --plugin npi nvmf_subsystem_add_listener -t npi -a 0.{i} nqn.2019-07.io.spdk:npi-0.{i} --max-qpairs {nvmf_queues}"
+                )
+                time.sleep(2)
+            logging.ptf_info(f"End creating controllers")
+        except CommandException:
+            logging.error(f"Controllers didn't create")
+
+    def add_remote_controllers(self, rpc_path, num):
+        time.sleep(5)
+        try:
+            logging.ptf_info(f"Add remote controllers")
+            for i in range(1, num + 1):
+                self.terminal.execute(
+                    f"ssh root@200.1.1.3 {rpc_path} bdev_nvme_attach_controller -b Nvme{i} -t TCP -a 200.1.1.1 -f IPv4 -s 4420 -n nqn.2019-06.io.spdk:{i}"
+                )
+                time.sleep(2)
+            logging.ptf_info(f"End adding remote controllers")
+        except CommandException:
+            logging.error(f"Remote controllers didn't add")
+
+    def create_namespaces(self, rpc_path, num):
+        time.sleep(10)
+        try:
+            logging.ptf_info(f"Create namespaces")
+            for i in range(1, num + 1):
+                self.terminal.execute(
+                    f"ssh root@200.1.1.3 {rpc_path} nvmf_subsystem_add_ns nqn.2019-07.io.spdk:npi-0.{i} Nvme{i}n1"
+                )
+                time.sleep(2)
+            logging.ptf_info(f"End creating namespaces")
+        except CommandException:
+            logging.error(f"Namespaces didn't create")
+
+    def create_pf_device(self, rpc_path):
+        nvmf_queues = 25
+        try:
+            logging.ptf_info(f"Start create pf device")
+            self.terminal.execute(
+                f"ssh root@200.1.1.3 '{rpc_path} nvmf_create_subsystem nqn.2019-07.io.spdk:npi-0.0 -a'"
+            )
+            time.sleep(5)
+            cmd = (
+                f"ssh root@200.1.1.3 '{rpc_path} --plugin npi nvmf_subsystem_add_listener"
+                f" nqn.2019-07.io.spdk:npi-0.0 --trtype NPI --traddr 0.0 --max-qpairs {nvmf_queues}'"
+            )
+            self.terminal.execute(cmd)
+            time.sleep(5)
+            self.terminal.execute(
+                f"ssh root@200.1.1.3 '{rpc_path} bdev_null_create NullPF {SPDK_BDEV_NUM_BLOCKS} {SPDK_BDEV_BLOCK_SIZE}'"
+            )
+            time.sleep(5)
+            self.terminal.execute(
+                f"ssh root@200.1.1.3 '{rpc_path} nvmf_subsystem_add_ns nqn.2019-07.io.spdk:npi-0.0  NullPF'"
+            )
+            time.sleep(5)
+            logging.ptf_info(f"End create pf device")
+        except CommandException:
+            logging.error(f"Create PF device")
+
+    def run_npi_transport(self, rpc_path):
+        try:
+            logging.ptf_info(f"Start run npi transport")
+            cmd = (
+                f"ssh root@200.1.1.3 'export MEV_NVME_DEVICE_MODE=HW_ACC_WITH_IMC "
+                f"&& PYTHONPATH=/opt/ssa/rpc {rpc_path} --plugin npi nvmf_create_transport -t npi'"
+            )
+            self.terminal.execute(cmd)
+            logging.ptf_info(f"End run npi transport")
+        except CommandException:
+            logging.error(f"Run NPI transport")
+
+    def start_ssa(self, rpc_path):
+        try:
+            logging.ptf_info(f"Start SSA on ACC")
+            self.terminal.execute(
+                f"ssh root@200.1.1.3 'echo 2048 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages'"
+            )
+            cmd = (
+                f"ssh root@200.1.1.3 'ssa --logflag dma_utils --logflag npi"
+                f" --logflag nvme --logflag nvmf --logflag bdev_nvme -B 00:01.1 -m 0xEFFF --wait-for-rpc' &"
+            )
+            self.terminal.execute(cmd)
+            time.sleep(10)
+            logging.ptf_info(f"End start SSA on ACC")
+            logging.ptf_info(f"Start set SSA")
+            self.terminal.execute(
+                f"ssh root@200.1.1.3 '{rpc_path} sock_impl_set_options -iposix --enable-zerocopy-send-server'"
+            )
+            time.sleep(2)
+            self.terminal.execute(
+                f"ssh root@200.1.1.3 '{rpc_path} iobuf_set_options --small-pool-count 12288 --large-pool-count 6144'"
+            )
+            time.sleep(2)
+            self.terminal.execute(
+                f"ssh root@200.1.1.3 '{rpc_path} framework_start_init'"
+            )
+            time.sleep(1)
+            logging.ptf_info(f"End set SSA")
+        except CommandException:
+            logging.error(f"Start SSA on ACC")
+
+    def prepare_acc(self):
+        try:
+            logging.ptf_info(f"Start prepare acc")
+            self.terminal.execute(f"ssh root@200.1.1.3 modprobe -r qat_lce_cpfxx")
+            self.terminal.execute(f"ssh root@200.1.1.3 modprobe qat_lce_cpfxx")
+            cpfdev = self.terminal.execute(
+                f"ssh root@200.1.1.3 lspci -D -d :1456 | cut -f1 -d' '"
+            )
+            mdev_uuid = self.terminal.execute(
+                f"ssh root@200.1.1.3 cat /proc/sys/kernel/random/uuid"
+            )
+            cmd = (
+                f"ssh root@200.1.1.3 'echo {mdev_uuid} >"
+                f" /sys/bus/pci/devices/{cpfdev}/mdev_supported_types/lce_cpfxx-mdev/create'"
+            )
+            self.terminal.execute(cmd)
+
+            path = f"/sys/bus/mdev/devices/{mdev_uuid}/"
+            self.terminal.execute(f"ssh root@200.1.1.3 'echo 0 > {path}enable'")
+            self.terminal.execute(
+                f"ssh root@200.1.1.3 'echo 15 > {path}dma_queue_pairs'"
+            )
+            self.terminal.execute(
+                f"ssh root@200.1.1.3 'echo 15 > {path}cy_queue_pairs'"
+            )
+            self.terminal.execute(f"ssh root@200.1.1.3 'echo 1 > {path}enable'")
+
+            self.terminal.execute(
+                f"ssh root@200.1.1.3 dma_sample 0"
+            )  # test if DMA works
+            self.terminal.execute(f"ssh root@200.1.1.3 modprobe vfio-pci")
+            self.terminal.execute(f"ssh root@200.1.1.3 sysctl -w vm.nr_hugepages=2048")
+            self.terminal.execute(
+                f"ssh root@200.1.1.3 'echo 8086 1458 > /sys/bus/pci/drivers/vfio-pci/new_id'"
+            )
+            logging.ptf_info(f"End prepare acc")
+        except CommandException:
+            logging.error(f"ACC prepare commands")
+
+    def create_devices(self, rpc_path):
+        try:
+            # create devices on lp
+            logging.ptf_info(f"Start create devices on lp")
+            for i in range(CONTROLLERS_NUMBER):
+                self.terminal.execute(
+                    f"sudo {rpc_path} bdev_null_create {SPDK_BDEV_BASE}{i} {SPDK_BDEV_NUM_BLOCKS} {SPDK_BDEV_BLOCK_SIZE}"
+                )
+                self.terminal.execute(
+                    f"sudo {rpc_path} nvmf_create_subsystem {SPDK_SNQN_BASE}:{i+1} --allow-any-host --max-namespaces {CONTROLLERS_NUMBER}"
+                )
+                self.terminal.execute(
+                    f"sudo {rpc_path} nvmf_subsystem_add_ns {SPDK_SNQN_BASE}:{i+1}  {SPDK_BDEV_BASE}{i}"
+                )
+                cmd = (
+                    f"sudo {rpc_path} nvmf_subsystem_add_listener"
+                    f" {SPDK_SNQN_BASE}:{i + 1} --trtype tcp --traddr 200.1.1.1 --trsvcid 4420"
+                )
+                self.terminal.execute(cmd)
+            logging.ptf_info(f"End create devices on lp")
+        except CommandException:
+            logging.error(f"create devices on lp")
+
+    def set_nvmf_tgt(self, mask, rpc_path):
+        # Setup nvmf_tgt and create transport
+        nr_hugepages = 2048
+        try:
+            logging.ptf_info(f"Start setup nvmf_tgt and create transport")
+            self.terminal.execute(f"sudo sysctl -w vm.nr_hugepages={nr_hugepages}")
+            self.terminal.execute(
+                f"cd spdk && sudo ./build/bin/nvmf_tgt --cpumask {mask} --wait-for-rpc &"
+            )
+            self.terminal.execute(
+                f"sudo {rpc_path} sock_impl_set_options -iposix --enable-zerocopy-send-server"
+            )
+            self.terminal.execute(
+                f"sudo {rpc_path} iobuf_set_options --small-pool-count 12288 --large-pool-count 12288"
+            )
+            self.terminal.execute(f"sudo {rpc_path} framework_start_init")
+            self.terminal.execute(
+                f"sudo {rpc_path} nvmf_create_transport --trtype TCP --max-queue-depth=4096 --num-shared-buffers=8191"
+            )
+            logging.ptf_info(f"End setup nvmf_tgt and create transport")
+        except CommandException:
+            logging.error(f"Setup nvmf_tgt and create transport")
+
+    def find_spdk_mask(self):
+        cpus_to_use = self.get_cpus_to_use()
+        try:
+            logging.ptf_info(f"Start find mask for SPDK on LP")
+            spdk_cpu_mask = 0
+            for cpu in cpus_to_use:
+                spdk_cpu_mask = self.terminal.execute(
+                    f"echo $(({spdk_cpu_mask} | (1 << {cpu})))"
+                )
+            logging.ptf_info(f"End find mask for SPDK on LP")
+            return hex(int(spdk_cpu_mask))
+        except CommandException:
+            logging.error(f"Find mask for SPDK on LP")
+
+    def set_spdk(self):
+        # Download and configure spdk on LP
+        try:
+            logging.ptf_info(f"Start set spdk")
+            self.terminal.execute(SPDK_REP)
+            self.terminal.execute(f"cd spdk && git checkout {SPDK_VERSION}")
+            self.terminal.execute("cd spdk && git submodule update --init")
+            self._install_spdk_prerequisites()
+            logging.ptf_info(f"End set spdk")
+        except CommandException:
+            logging.error(f"Download and configure spdk on LP")
 
     def create_hugepages(self):
         self.terminal.execute(
-            "sudo bash -c 'echo 2048 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages'"
+            "sudo bash -c 'echo 4096 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages'"
         )
 
     def _get_network_interfaces_names(self):
@@ -293,6 +606,9 @@ class LinkPartnerPlatform(BaseTestPlatform):
         except:
             return False
 
+    def _get_valid_interfaces(self, interfaces):
+        return [interface for interface in interfaces if interface != "lo"]
+
     def set_internal_ips(self):
         logging.ptf_info(f"Start setting internal ips")
         if self._is_lp_and_acc_ip_correct():
@@ -300,18 +616,10 @@ class LinkPartnerPlatform(BaseTestPlatform):
             return True
         self.imc_device.execute("python3 /usr/bin/scripts/cfg_acc_apf_x2.py", 10)
         self.acc_device.execute("systemctl stop NetworkManager")
-
-        lp_interfaces = [
-            interface
-            for interface in self._get_network_interfaces_names()
-            if interface != "lo"
-        ]
-        acc_interfaces = [
-            interface
-            for interface in self._get_acc_network_interfaces_names()
-            if interface != "lo"
-        ]
-
+        lp_interfaces = self._get_valid_interfaces(self._get_network_interfaces_names())
+        acc_interfaces = self._get_valid_interfaces(
+            self._get_acc_network_interfaces_names()
+        )
         for lp_interface in lp_interfaces:
             if not self._is_lp_and_acc_ip_correct():
                 self._set_ip(LP_INTERNAL_IP, lp_interface)
@@ -371,7 +679,7 @@ class LinkPartnerPlatform(BaseTestPlatform):
         pass
 
     def clean(self):
-        # TODO delete all alocated devices
+        self.terminal.execute("sudo rm -rf spdk")
         return super().clean()
 
 
@@ -381,24 +689,59 @@ class HostPlatform(BaseTestPlatform):
         self.vm = None
 
     def set(self, run_vm=False):
+        nvme_pf_bdf = self.get_nvme_pf_bdf()
+        self.bind_pf(nvme_pf_bdf)
+        self.create_vfs(nvme_pf_bdf)
+        self.bind_vfs(nvme_pf_bdf)
         if run_vm:
             self.vm = VirtualMachine(self)
             self.vm.run("root", "root")
 
-    def get_number_of_virtio_blk_devices(self):
-        pass
+    def get_nvme_pf_bdf(self):
+        # On SUT find the address of PF
+        pfs = self.terminal.execute(f"""lspci -D -d 8086:1457 | cut -d " " -f1""")
+        return pfs.split("\n")[0]
 
-    def host_target_service_port_in_vm(self):
-        pass
+    def bind_pf(self, nvme_pf_bdf):
+        logging.ptf_info(f"PF binding")
+        return self.terminal.execute(
+            f"""echo {nvme_pf_bdf} | sudo tee /sys/bus/pci/drivers/nvme/bind"""
+        )
 
-    def get_service_address(self):
-        pass
+    def create_vfs(self, nvme_pf_bdf):
+        logging.ptf_info(f"Create VFs on SUT")
+        filepath = f"/sys/bus/pci/devices/{nvme_pf_bdf}/sriov_drivers_autoprobe"
+        self.terminal.execute(f"""echo 0 | sudo tee {filepath}""")
+        filepath = f"/sys/bus/pci/drivers/nvme/{nvme_pf_bdf}/sriov_numvfs"
+        self.terminal.execute(f"""echo {CONTROLLERS_NUMBER} | sudo tee {filepath}""")
+        logging.ptf_info(f"End creating VFs on SUT")
 
-    def check_block_devices(self):
-        pass
+    def bind_vfs(self, nvme_pf_bdf):
+        logging.ptf_info(f"Bind VFs to NVMe driver")
+        for i in range(CONTROLLERS_NUMBER):
+            filepath = f"/sys/bus/pci/devices/{nvme_pf_bdf}/virtfn{i}/driver_override"
+            self.terminal.execute(f"""echo nvme | sudo tee {filepath}""")
+            filepath = f"/sys/bus/pci/drivers/nvme/bind"
+            virtfn = self.terminal.execute(
+                f"""echo $(basename "$(realpath "/sys/bus/pci/devices/{nvme_pf_bdf}/virtfn{i}")")"""
+            )
+            self.terminal.execute(f"""echo {virtfn} | sudo tee {filepath}""")
+            time.sleep(10)
+        logging.ptf_info(f"End binding VFs to NVMe driver")
 
-    def check_nvme_dev_files(self):
-        pass
+    def run_performance_fio(self):
+        logging.ptf_info(f"Start fio")
+        cpus_to_use = self.get_cpus_to_use()
+        filenames = ""
+        for i in range(2, CONTROLLERS_NUMBER + 2):
+            filenames = filenames + f"--filename=/dev/nvme{i}n1 "
+        fio = f"""
+        sudo taskset -c {cpus_to_use[0]}-{cpus_to_use[-1]} fio --name=test --rw=randwrite {filenames}\
+        --numjobs=12 --group_reporting --runtime=20 --time_based=1 --io_size=4096 --iodepth=2048 --ioengine=libaio --ramp_time 5
+        """
+        response = self.terminal.execute(f"{fio}")
+        logging.ptf_info(f"End fio")
+        return response
 
 
 class PlatformFactory:

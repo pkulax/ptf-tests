@@ -3,13 +3,14 @@
 #
 
 from pathlib import Path
-from time import sleep
 from threading import Thread
+from time import sleep
 from typing import Optional
 
 from paramiko.client import AutoAddPolicy, SSHClient
 
 from system_tools.errors import CommandException
+from system_tools.log import logging
 
 
 class SSHTerminal:
@@ -126,7 +127,8 @@ class DeviceTerminal:
         return cmd_thread.response
 
     def login(self):
-        for i in range(4):
+        logging.ptf_info(f"Login device {self.dev}")
+        for i in range(10):
             self.execute("root")
 
     def logout(self):
