@@ -26,6 +26,11 @@ class BaseConfig(ABC):
         env = os.getenv(env_name)
         return env if env else alternative
 
+class DockerConfig(BaseConfig):
+    def __init__(self):
+        self.http_proxy = self._getenv("HTTP_PROXY")
+        self.https_proxy = self._getenv("HTTPS_PROXY")
+        self.ftp_proxy = self._getenv("FTP_PROXY")
 
 class TestConfig(BaseConfig):
     def __init__(self):

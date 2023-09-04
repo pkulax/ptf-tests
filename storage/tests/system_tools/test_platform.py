@@ -4,12 +4,13 @@
 
 import re
 
-from system_tools.config import HostConfig, LpConfig
+from system_tools.config import HostConfig, LpConfig, DockerConfig
 from system_tools.const import ACC_INTERNAL_IP, LP_INTERNAL_IP
 from system_tools.errors import MissingDependencyException
 from system_tools.log import logging
 from system_tools.terminals import DeviceTerminal, SSHTerminal
 from system_tools.vm import VirtualMachine
+from system_tools.errors import CommandException
 
 
 class RemoteNvmeStorage:
@@ -113,7 +114,7 @@ class BaseTestPlatform:
     def _install_kernel_headers(self):
         logging.ptf_info(f"Start installing kernel headers")
         raw = self.terminal.execute("sudo dnf install -y kernel-headers")
-        logging.ptf_info(f"Kernel headers was installed")
+        logging.ptf_info(f"Kernel headers installed")
         return raw
 
     def get_ip_address(self):
@@ -195,7 +196,69 @@ class BaseTestPlatform:
 
     # TODO add implementation
     def _install_docker(self):
-        pass
+        logging.ptf_info(f"Start installing docker")
+        return self.terminal.execute("sudo dnf install -y docker")
+        logging.ptf_info(f"Docker is installed")
+
+    def _set_docker(self):
+        docker_config = DockerConfig()
+        filepath = "/etc/systemd/system/docker.service.d/http-proxy.conf"
+        logging.ptf_info(f"Start setting docker service")
+        self.terminal.execute("sudo mkdir -p /etc/systemd/system/docker.service.d")
+        # proxies
+        env = f'''[Service]\n''' \
+              f'''Environment="HTTP_PROXY="{docker_config.http_proxy}"\n''' \
+              f'''Environment="HTTPS_PROXY={docker_config.https_proxy}"\n''' \
+              f'''Environment="http_proxy={docker_config.http_proxy}"\n''' \
+              f'''Environment="https_proxy={docker_config.https_proxy}"\n''' \
+              f'''Environment="FTP_PROXY={docker_config.ftp_proxy}"\n''' \
+              f'''Environment="ftp_proxy={docker_config.ftp_proxy}"'''
+        self.terminal.execute(f"""echo -e '{env}' | sudo tee {filepath}""")
+        self.terminal.execute("sudo systemctl daemon-reload")
+        self.terminal.execute("sudo systemctl restart docker")
+        # cgroups
+        try:
+            self.terminal.execute("sudo mkdir /sys/fs/cgroup/systemd")
+            self.terminal.execute("sudo mount -t cgroup -o none,name=systemd cgroup /sys/fs/cgroup/systemd")
+        except CommandException:
+            pass
+
+        logging.ptf_info(f"Docker service is setting")
+
+    def _install_spdk_prerequisites(self):
+        logging.ptf_info(f"Install spdk prerequisites")
+        self.terminal.execute("cd spdk && sudo ./scripts/pkgdep.sh")
+        self.terminal.execute("cd spdk && sudo ./configure --with-vfio-user")
+        self.terminal.execute("cd spdk && sudo make")
+        logging.ptf_info(f"spdk prerequisites installed")
+
+    def _run_kvm_server(self):
+        logging.ptf_info(f"Run kvm server")
+        self.terminal.execute("sudo dnf install -y go")
+        cmd = "go run ./cmd -ctrlr_dir=/var/tmp -kvm -port 50052 &"
+        self.terminal.execute(f"cd opi-spdk-bridge && sudo {cmd}")
+        logging.ptf_info(f"kvm server running")
+
+    def _run_spdk_sock(self):
+        logging.ptf_info("Run spdk sock")
+        self.terminal.execute("sudo ./spdk/build/bin/spdk_tgt -S /var/tmp -s 1024 -m 0x3")
+
+    def _run_second_spdk_sock(self):
+        logging.ptf_info("Run second spdk sock")
+        self.terminal.execute("sudo ./spdk/build/bin/spdk_tgt -S /var/tmp -s 1024 -m 0x20 -r /var/tmp/spdk2.sock")
+
+    def _create_transports(self):
+        logging.ptf_info(f"Create transports")
+        directory = "cd spdk/scripts/"
+        cmd1 = "./rpc.py -s /var/tmp/spdk2.sock nvmf_create_transport -t tcp"
+        cmd2 = "./rpc.py -s /var/tmp/spdk2.sock nvmf_create_transport -t vfiouser"
+        cmd3 = "./rpc.py nvmf_create_transport -t tcp"
+        cmd4 = "./rpc.py nvmf_create_transport -t vfiouser"
+        self.terminal.execute(f"cd {directory} && sudo {cmd1}")
+        self.terminal.execute(f"cd {directory} && sudo {cmd2}")
+        self.terminal.execute(f"cd {directory} && sudo {cmd3}")
+        self.terminal.execute(f"cd {directory} && sudo {cmd4}")
+
 
     def check_system_setup(self):
         """Overwrite this method in specific platform if you don't want check all setup"""
@@ -245,21 +308,30 @@ class LinkPartnerPlatform(BaseTestPlatform):
         self.acc_device = DeviceTerminal(self.terminal, "/dev/ttyUSB0")
 
     def set(self):
-        self.clone()
-        self.create_hugepages()
+        #self.clone()
+        #if not self._is_docker():
+        #self._install_docker()
+        #self._set_docker()
+        #self._install_spdk_prerequisites()
+        #self._run_kvm_server()
+        #self.create_hugepages()
+        #self._run_spdk_sock()
+        #self._run_second_spdk_sock()
+        #self._create_transports()
+
+        # todo nvme
         self.set_internal_ips()
 
     def clone(self):
         self.terminal.execute("git clone https://github.com/spdk/spdk --recursive")
         self.terminal.execute("git clone https://github.com/opiproject/opi-api")
-        self.terminal.execute(
-            "git clone https://github.com/opiproject/opi-intel-bridge"
-        )
+        self.terminal.execute("git clone https://github.com/opiproject/opi-intel-bridge")
         self.terminal.execute("git clone https://github.com/opiproject/opi-spdk-bridge")
+        self.terminal.execute("git clone https://github.com/ipdk-io/ipdk")
 
     def create_hugepages(self):
         self.terminal.execute(
-            "sudo bash -c 'echo 2048 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages'"
+            "sudo bash -c 'echo 4096 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages'"
         )
 
     def _get_network_interfaces_names(self):
@@ -372,6 +444,11 @@ class LinkPartnerPlatform(BaseTestPlatform):
 
     def clean(self):
         # TODO delete all alocated devices
+        self.terminal.execute("rm -rf spdk")
+        self.terminal.execute("rm -rf opi-api")
+        self.terminal.execute("rm -rf opi-intel-bridge")
+        self.terminal.execute("rm -rf opi-spdk-bridge")
+        self.terminal.execute("rm -rf ipdk")
         return super().clean()
 
 
@@ -404,7 +481,7 @@ class HostPlatform(BaseTestPlatform):
 class PlatformFactory:
     def __init__(self):
         self.lp_platform = LinkPartnerPlatform()
-        self.host_platform = HostPlatform()
+        #self.host_platform = HostPlatform()
 
     def get_host_platform(self):
         return self.host_platform

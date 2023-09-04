@@ -15,7 +15,8 @@ class TestNVMEMinHotPlugAndFio(BaseTest):
         self.tests_config = TestConfig()
         self.platforms_factory = PlatformFactory()
         self.lp_platform = self.platforms_factory.get_lp_platform()
-        self.host_platform = self.platforms_factory.get_host_platform()
+        self.lp_platform.set()
+        #self.host_platform = self.platforms_factory.get_host_platform()
 
     def runTest(self):
         pass
@@ -281,9 +282,10 @@ class TestNVMEAboveMaxHotPlug(BaseTest):
 """
 
     def tearDown(self):
-        self.lp_platform.terminal.execute("rm -rf spdk")
-        self.lp_platform.terminal.execute("rm -rf opi-api")
-        self.lp_platform.terminal.execute("rm -rf opi-intel-bridge")
-        self.lp_platform.terminal.execute("rm -rf opi-spdk-bridge")
-        self.lp_platform.clean()
-        self.host_platform.clean()
+        #self.lp_platform.terminal.execute("rm -rf spdk")
+        #self.lp_platform.terminal.execute("rm -rf opi-api")
+        #self.lp_platform.terminal.execute("rm -rf opi-intel-bridge")
+        #self.lp_platform.terminal.execute("rm -rf opi-spdk-bridge")
+        #self.lp_platform.clean()
+        #self.host_platform.clean()
+        pass

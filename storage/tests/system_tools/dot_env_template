@@ -35,3 +35,7 @@ MIN_RAMDRIVE=""
 NQN=""
 DEBUG=false
 CMD_SENDER_PLATFORM=""
+
+HTTP_PROXY="http://proxy-chain.intel.com:911"
+HTTPS_PROXY="http://proxy-chain.intel.com:912"
+FTP_PROXY="http://proxy-chain.intel.com:911"
