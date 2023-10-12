@@ -41,7 +41,7 @@ export LD_LIBRARY_PATH=$IPDK_RECIPE/install/lib/:$SDE_INSTALL/lib:$SDE_INSTALL/l
 export PATH=$PATH:$IPDK_RECIPE/install/bin:$DEPEND_INSTALL/bin:$DEPEND_INSTALL/sbin
 export RUN_OVS=$IPDK_RECIPE/install
 
-source $IPDK_RECIPE/install/sbin/setup_env.sh $IPDK_RECIPE $SDE_INSTALL $DEPEND_INSTALL
+source $IPDK_RECIPE/install/sbin/setup_env.sh $IPDK_RECIPE/install $SDE_INSTALL $DEPEND_INSTALL
 
 echo "starting ovs"
 mkdir -p $IPDK_RECIPE/install/var/run/openvswitch
