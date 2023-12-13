@@ -6,6 +6,7 @@ import os
 from abc import ABC, abstractmethod
 
 from dotenv import load_dotenv
+from system_tools.const import LP_INTERNAL_IP, ACC_INTERNAL_IP
 
 from system_tools.const import (DEFAULT_HOST_TARGET_SERVICE_PORT_IN_VM,
                                 DEFAULT_MAX_RAMDRIVE, DEFAULT_MIN_RAMDRIVE,
@@ -26,14 +27,15 @@ class BaseConfig(ABC):
         env = os.getenv(env_name)
         return env if env else alternative
 
+class DockerConfig(BaseConfig):
+    def __init__(self):
+        self.http_proxy = self._getenv("HTTP_PROXY")
+        self.https_proxy = self._getenv("HTTPS_PROXY")
+        self.ftp_proxy = self._getenv("FTP_PROXY")
 
 class TestConfig(BaseConfig):
+    __test__ = False
     def __init__(self):
-        self.spdk_port = self._getenv("SPDK_PORT", DEFAULT_SPDK_PORT)
-        self.nvme_port = self._getenv("NVME_PORT", DEFAULT_NVME_PORT)
-        self.qmp_port = self._getenv("QMP_PORT", DEFAULT_QMP_PORT)
-        self.max_ramdrive = self._getenv("MAX_RAMDRIVE", DEFAULT_MAX_RAMDRIVE)
-        self.min_ramdrive = self._getenv("MIN_RAMDRIVE", DEFAULT_MIN_RAMDRIVE)
         self.debug = self._getenv("DEBUG", "FALSE")
         self.nqn = self._getenv("NQN", DEFAULT_NQN)
         self.cmd_sender_platform = self._getenv("CMD_SENDER_PLATFORM", "ipu")
