@@ -44,3 +44,9 @@ SPDK_BDEV_BASE = "Null"
 FIO_TARGET_PERFORMANCE = 2_000_000
 FIO_NUM_RUN = 10
 FIO_PERCENT_PASS = 50
+
+NODE = 1
+BRIDGE_ADDR = "127.0.0.1:50051"
+GRPC_CLI = 'env -i grpc_cli'
+ACC_RPC_PATH = "/opt/ssa/rpc.py"
+LP_RPC_PATH = "/home/berta/spdk/scripts/rpc.py"
