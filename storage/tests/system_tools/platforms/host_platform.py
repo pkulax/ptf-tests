@@ -12,8 +12,9 @@ from system_tools.terminals import SSHTerminal
 
 
 class HostPlatform(BasePlatform):
-    def __init__(self):
+    def __init__(self, controllers_number=CONTROLLERS_NUMBER):
         super().__init__(SSHTerminal(HostConfig()))
+        self.controllers_number = controllers_number
 
     def set(self):
         super().set()
@@ -46,12 +47,12 @@ class HostPlatform(BasePlatform):
         filepath = f"/sys/bus/pci/devices/{nvme_pf_bdf}/sriov_drivers_autoprobe"
         self.terminal.execute(f"""echo 0 | sudo tee {filepath}""")
         filepath = f"/sys/bus/pci/drivers/nvme/{nvme_pf_bdf}/sriov_numvfs"
-        self.terminal.execute(f"""echo {CONTROLLERS_NUMBER} | sudo tee {filepath}""")
+        self.terminal.execute(f"""echo {self.controllers_number} | sudo tee {filepath}""")
         logging.ptf_info("End creating VFs on SUT")
 
     def bind_vfs(self, nvme_pf_bdf):
         logging.ptf_info("Bind VFs to NVMe driver")
-        for i in range(CONTROLLERS_NUMBER):
+        for i in range(self.controllers_number):
             filepath = f"/sys/bus/pci/devices/{nvme_pf_bdf}/virtfn{i}/driver_override"
             self.terminal.execute(f"""echo nvme | sudo tee {filepath}""")
             filepath = "/sys/bus/pci/drivers/nvme/bind"
@@ -62,11 +63,11 @@ class HostPlatform(BasePlatform):
             time.sleep(7)
         logging.ptf_info("End binding VFs to NVMe driver")
 
-    def run_performance_fio(self):
+    def run_performance_fio(self, num=CONTROLLERS_NUMBER):
         logging.ptf_info("Start fio")
         cpus_to_use = self.get_cpus_to_use()
         filenames = ""
-        for i in range(2, CONTROLLERS_NUMBER + 2):
+        for i in range(2, num + 2):
             filenames = filenames + f"--filename=/dev/nvme{i}n1 "
         fio = f"""
         sudo taskset -c {cpus_to_use[0]}-{cpus_to_use[-1]} fio --name=test --rw=randwrite {filenames}\

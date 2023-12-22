@@ -19,11 +19,11 @@ from system_tools.terminals import DeviceTerminal, SSHTerminal
 
 class LPPlatform(BasePlatform):
     # Link Partner
-    def __init__(self):
+    def __init__(self, controllers_number=CONTROLLERS_NUMBER):
         super().__init__(SSHTerminal(LpConfig()))
         self.imc_device = DeviceTerminal(self.terminal, "/dev/ttyUSB2")
         self.acc_device = DeviceTerminal(self.terminal, "/dev/ttyUSB0")
-        self.controllers_number = CONTROLLERS_NUMBER
+        self.controllers_number = controllers_number
         self.acc_rpc_path = ACC_RPC_PATH
         self.lp_rpc_path = LP_RPC_PATH
         self.grpc_cli = GRPC_CLI
@@ -175,21 +175,28 @@ class LPPlatform(BasePlatform):
         # Setup nvmf_tgt and create transport
         nr_hugepages = 2048
         try:
+
             logging.ptf_info("Start setup nvmf_tgt and create transport")
             self.terminal.execute(f"sudo sysctl -w vm.nr_hugepages={nr_hugepages}")
+            time.sleep(0.5)
             self.terminal.execute(
                 f"cd spdk && sudo ./build/bin/nvmf_tgt --cpumask {mask} --wait-for-rpc &"
             )
+            time.sleep(2)
             self.terminal.execute(
                 f"sudo {self.lp_rpc_path} sock_impl_set_options -iposix --enable-zerocopy-send-server"
             )
+            time.sleep(2)
             self.terminal.execute(
                 f"sudo {self.lp_rpc_path} iobuf_set_options --small-pool-count 12288 --large-pool-count 12288"
             )
+            time.sleep(2)
             self.terminal.execute(f"sudo {self.lp_rpc_path} framework_start_init")
+            time.sleep(2)
             self.terminal.execute(
                 f"sudo {self.lp_rpc_path} nvmf_create_transport --trtype TCP --max-queue-depth=4096 --num-shared-buffers=8191"
             )
+            time.sleep(2)
             logging.ptf_info("End setup nvmf_tgt and create transport")
         except CommandException:
             logging.error("Setup nvmf_tgt and create transport")
@@ -364,8 +371,8 @@ class IPULinkPartnerPlatform(LPPlatform):
 
 
 class OPILinkPartnerPlatform(LPPlatform):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, controllers_number=CONTROLLERS_NUMBER):
+        super().__init__(controllers_number)
         self.bridge_addr = BRIDGE_ADDR
 
     def install_opi_prerequsites(self):
@@ -383,22 +390,25 @@ class OPILinkPartnerPlatform(LPPlatform):
         self.create_vf_devices()
 
     def setup_opi_bridge(self):
-        logging.ptf_info("Start setup opi bridge")
-        self.terminal.execute("git clone https://github.com/opiproject/opi-intel-bridge.git")
-        filename = "docker-compose.yml"
-        with open(f"static/{filename}", "r") as file:
-            content = file.read()
-            self.terminal.execute(f"""echo '{content}' > opi-intel-bridge/{filename}""")
+        try:
+            logging.ptf_info("Start setup opi bridge")
+            self.terminal.execute("git clone https://github.com/opiproject/opi-intel-bridge.git")
+            filename = "docker-compose.yml"
+            with open(f"static/{filename}", "r") as file:
+                content = file.read()
+                self.terminal.execute(f"""echo '{content}' > opi-intel-bridge/{filename}""")
 
-        # sometimes docker is not running
-        cmd = """sudo systemctl start docker"""
-        self.terminal.execute(cmd)
-        time.sleep(3)
+            # sometimes docker is not running
+            cmd = """sudo systemctl start docker"""
+            self.terminal.execute(cmd)
+            time.sleep(3)
 
-        cmd = """cd opi-intel-bridge && sudo screen -dm bash -c 'docker compose up'"""
-        self.terminal.execute(cmd)
-        time.sleep(7)
-        logging.ptf_info("End setup opi bridge")
+            cmd = """cd opi-intel-bridge && sudo screen -dm bash -c 'docker compose up'"""
+            self.terminal.execute(cmd)
+            time.sleep(10)
+            logging.ptf_info("End setup opi bridge")
+        except CommandException:
+            logging.ptf_info("Setup opi bridge is failed")
 
     def setup_socket_connection(self):
         # Setup ssa socket connection between LP ACC

@@ -26,6 +26,7 @@ class BasePlatform:
 
     def change_cpu_performance_scaling(self):
         try:
+            logging.ptf_info("Start changing cpu performance")
             for i in range(int(self.terminal.execute("nproc"))):
                 freq = self.terminal.execute(
                     f"cat /sys/devices/system/cpu/cpu{i}/cpufreq/cpuinfo_max_freq"
@@ -47,6 +48,7 @@ class BasePlatform:
                 )
                 energy = f"/sys/devices/system/cpu/cpu{i}/cpufreq/energy_performance_preference"
                 self.terminal.execute(f"echo -e performance | sudo tee {energy}")
+            logging.ptf_info("End changing cpu performance")
         except CommandException:
             logging.error("If permission denied or file not exist is ok")
 
@@ -122,9 +124,9 @@ class BasePlatform:
         return response
 
     def set_docker(self):
+        logging.ptf_info("Start setting docker service")
         docker_config = DockerConfig()
         filepath = "/etc/systemd/system/docker.service.d/http-proxy.conf"
-        logging.ptf_info("Start setting docker service")
         self.terminal.execute("sudo mkdir -p /etc/systemd/system/docker.service.d")
         # proxies
         env = (

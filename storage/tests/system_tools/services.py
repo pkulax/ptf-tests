@@ -5,7 +5,7 @@
 from abc import ABC, abstractmethod
 
 from system_tools.config import TestConfig
-from system_tools.const import FIO_TARGET_PERFORMANCE
+from system_tools.const import CONTROLLERS_NUMBER, FIO_TARGET_PERFORMANCE
 from system_tools.parsers import fio_performance_parser
 from system_tools.platforms.host_platform import HostPlatform
 from system_tools.platforms.lp_platform import (IPULinkPartnerPlatform,
@@ -50,7 +50,8 @@ class IPUService(BaseService):
 
 
 class OPIService(BaseService):
-    def __init__(self):
+    def __init__(self, controllers_number=None):
+        self.controllers_number = controllers_number if controllers_number else CONTROLLERS_NUMBER
         self.tests_config = TestConfig()
-        self.lp_platform = OPILinkPartnerPlatform()
-        self.host_platform = HostPlatform()
+        self.lp_platform = OPILinkPartnerPlatform(self.controllers_number)
+        self.host_platform = HostPlatform(self.controllers_number)

@@ -57,7 +57,7 @@ class BasePlatformConfig(BaseConfig):
         self.username = self._get_platform_property("USERNAME")
         self.password = self._get_platform_property("PASSWORD")
         self.ip_address = self._get_platform_property("IP_ADDRESS")
-        self.port = self._get_platform_property("PORT")
+        self.port = self._get_platform_property("PORT", 22)
         self.workdir = os.getenv(
             "_".join([platform_name, "WORKDIR"]),
             f"/home/{self.username}/ipdk_tests_workdir",
@@ -67,8 +67,8 @@ class BasePlatformConfig(BaseConfig):
     def storage_dir(self):
         return os.path.join(self.workdir, STORAGE_DIR_PATH)
 
-    def _get_platform_property(self, property_name):
-        return self._getenv("_".join([self._platform_name, property_name]))
+    def _get_platform_property(self, property_name, alternative=None):
+        return self._getenv("_".join([self._platform_name, property_name]), alternative)
 
 
 class MainPlatformConfig(BasePlatformConfig):
